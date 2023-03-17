@@ -1,5 +1,0 @@
-1. Download Unity 2022.1.23f1.
-2. Extract the zip file
-3. Open the extracted '__Vulkan' folder using Unity.
-You are now in the project, tell me if something is weird.
-- Jacob
