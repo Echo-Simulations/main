@@ -16,19 +16,6 @@ static const float PHI = PI * (3.0f - 2.23606798f);
 int _Bounces;
 
 //-------------------------------------
-//- UTILITY
-
-float sdot(float3 x, float3 y, float f = 1.0f)
-{
-    return saturate(dot(x, y) * f);
-}
-
-float energy(float3 color)
-{
-    return dot(color, 1.0f / 3.0f);
-}
-
-//-------------------------------------
 //- RANDOMNESS
 
 float2 _Pixel;
@@ -260,7 +247,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
     }
     else
     {
-        // Erase the ray's energy - the sky doesn't reflect anything
+        // Skybox, erase the ray
         ray.volume = 0.0f;
         ray.delay = 0.0f;
     }
@@ -290,11 +277,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     for (int i = 0; i < _Bounces; i++)
     {
         hit = Trace(ray);
-        //result += ray.energy * Shade(ray, hit);
         CalculateEffects(ray, hit);
 
-        //if (!any(ray.energy))
-            //break;
         if (ray.volume == 0.0f)
             break;
         if (hit.hitListener)
