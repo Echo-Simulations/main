@@ -1,0 +1,320 @@
+﻿#pragma kernel CSMain
+
+RWTexture2D<float4> Result;
+//Red channel represents volume (as a percent)
+//Green channel represents delay (up to 1 second)
+
+float4x4 _Source;
+
+float2 _PixelOffset;
+
+static const float PI = 3.14159265f;
+static const float EPSILON = 1e-8;
+static const float PHI = PI * (3.0f - 2.23606798f);
+
+//- CONTROLS
+int _Bounces;
+
+//-------------------------------------
+//- UTILITY
+
+float sdot(float3 x, float3 y, float f = 1.0f)
+{
+    return saturate(dot(x, y) * f);
+}
+
+float energy(float3 color)
+{
+    return dot(color, 1.0f / 3.0f);
+}
+
+//-------------------------------------
+//- RANDOMNESS
+
+float2 _Pixel;
+float _Seed;
+
+float rand()
+{
+    float result = frac(sin(_Seed / 100.0f * dot(_Pixel, float2(12.9898f, 78.233f))) * 43758.5453f);
+    _Seed += 1.0f;
+    return result;
+}
+
+//-------------------------------------
+//- MESHES
+
+struct MeshObject
+{
+	float4x4 localToWorldMatrix;
+	int indices_offset;
+	int indices_count;
+    int isListener;
+};
+
+StructuredBuffer<MeshObject> _MeshObjects;
+StructuredBuffer<float3> _Vertices;
+StructuredBuffer<int> _Indices;
+
+
+//-------------------------------------
+//- RAY
+
+struct Ray
+{
+    float3 origin;
+    float3 direction;
+    float volume;
+    float delay;
+};
+
+Ray CreateRay(float3 origin, float3 direction)
+{
+    Ray ray;
+    ray.origin = origin;
+    ray.direction = direction;
+    ray.volume = 1.0f;
+    ray.delay = 0.0f;
+    return ray;
+}
+
+//Fibonnachi Sphere Algorithm
+Ray CreateSphereRay(float2 uv, int count)
+{
+    float3 origin = mul(_Source, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
+
+    //x or y?
+    float radius = sqrt(1.0f-(uv*uv).y);
+    float3 direction;
+    float theta = PHI * count;
+
+    direction.x = cos(theta) * radius;
+    direction.y = uv.y;
+    direction.z = sin(theta) * radius;
+
+    direction = normalize(direction);
+
+    return CreateRay(origin, direction);
+}
+
+
+//-------------------------------------
+//- RAYHIT
+
+struct RayHit
+{
+    float3 position;
+    float distance; //Assumes measured in meters
+    float3 normal;
+    float reflection; //How much sound will be reflected vs absorbed
+    bool hitListener;
+};
+
+RayHit CreateRayHit()
+{
+    RayHit hit;
+    hit.position = float3(0.0f, 0.0f, 0.0f);
+    hit.distance = 1.#INF;
+    hit.normal = float3(0.0f, 0.0f, 0.0f);
+    hit.reflection = 0.0f;
+    hit.hitListener = 0;
+    return hit;
+}
+
+
+//-------------------------------------
+//- INTERSECTION
+
+bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
+	inout float t, inout float u, inout float v)
+{
+	// find vectors for two edges sharing vert0
+	float3 edge1 = vert1 - vert0;
+	float3 edge2 = vert2 - vert0;
+
+	// begin calculating determinant - also used to calculate U parameter
+	float3 pvec = cross(ray.direction, edge2);
+
+	// if determinant is near zero, ray lies in plane of triangle
+	float det = dot(edge1, pvec);
+
+	// use backface culling
+	if (det < EPSILON)
+		return false;
+	float inv_det = 1.0f / det;
+
+	// calculate distance from vert0 to ray origin
+	float3 tvec = ray.origin - vert0;
+
+	// calculate U parameter and test bounds
+	u = dot(tvec, pvec) * inv_det;
+	if (u < 0.0 || u > 1.0f)
+		return false;
+
+	// prepare to test V parameter
+	float3 qvec = cross(tvec, edge1);
+
+	// calculate V parameter and test bounds
+	v = dot(ray.direction, qvec) * inv_det;
+	if (v < 0.0 || u + v > 1.0f)
+		return false;
+
+	// calculate t, ray intersects triangle
+	t = dot(edge2, qvec) * inv_det;
+
+	return true;
+}
+
+void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
+{
+	uint offset = meshObject.indices_offset;
+	uint count = offset + meshObject.indices_count;
+	for (uint i = offset; i < count; i += 3)
+	{
+        //Find the set of vertices that compose the tri
+		float3 v0 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i]], 1))).xyz;
+		float3 v1 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1))).xyz;
+		float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
+
+		float t, u, v;
+		if (IntersectTriangle_MT97(ray, v0, v1, v2, t, u, v))
+		{
+			if (t > 0 && t < bestHit.distance)
+			{
+                bestHit.hitListener = meshObject.isListener;
+				bestHit.distance = t;
+				bestHit.position = ray.origin + t * ray.direction;
+				bestHit.normal = normalize(cross(v1 - v0, v2 - v0));
+                //Determine the properties of the collision
+                bestHit.reflection = 1.0f;
+			}
+		}
+	}
+}
+
+//-------------------------------------
+//- TRACE
+
+RayHit Trace(Ray ray)
+{
+	RayHit bestHit = CreateRayHit();
+	uint count, stride, i;
+
+	// Trace mesh objects
+	_MeshObjects.GetDimensions(count, stride);
+	for (i = 0; i < count; i++)
+	{
+		IntersectMeshObject(ray, bestHit, _MeshObjects[i]);
+	}
+
+	return bestHit;
+}
+
+
+//-------------------------------------
+//- SAMPLING
+
+float3x3 GetTangentSpace(float3 normal)
+{
+    // Choose a helper vector for the cross product
+    float3 helper = float3(1, 0, 0);
+    if (abs(normal.x) > 0.99f)
+        helper = float3(0, 0, 1);
+
+    // Generate vectors
+    float3 tangent = normalize(cross(normal, helper));
+    float3 binormal = normalize(cross(normal, tangent));
+    return float3x3(tangent, binormal, normal);
+}
+
+float3 SampleHemisphere(float3 normal, float alpha)
+{
+    // Sample the hemisphere, where alpha determines the kind of the sampling
+    float cosTheta = pow(rand(), 1.0f / (alpha + 1.0f));
+    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
+    float phi = 2 * PI * rand();
+    float3 tangentSpaceDir = float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+
+    // Transform direction to world space
+    return mul(tangentSpaceDir, GetTangentSpace(normal));
+}
+
+//-------------------------------------
+//- CALCULATE
+
+void CalculateEffects(inout Ray ray, RayHit hit)
+{
+    if (hit.distance < 1.#INF)
+    {
+        // Specular reflection
+        ray.origin = hit.position + hit.normal * 0.001f;
+        ray.direction = SampleHemisphere(reflect(ray.direction, hit.normal), 1);
+        //Distance falloff
+        //Currently rather extreme
+        if(hit.distance > 1.0f)
+            ray.volume *= 1 / (hit.distance * hit.distance);
+        //Absorption on impact
+        ray.volume *= hit.reflection;
+        //Delay
+        ray.delay += hit.distance / 343.0f;
+    }
+    else
+    {
+        // Erase the ray's energy - the sky doesn't reflect anything
+        ray.volume = 0.0f;
+        ray.delay = 0.0f;
+    }
+}
+
+//-------------------------------------
+//- KERNEL
+
+[numthreads(8,8,1)]
+void CSMain (uint3 id : SV_DispatchThreadID)
+{
+    _Pixel = id.xy;
+
+    // Get the dimensions of the RenderTexture
+    uint width, height;
+    Result.GetDimensions(width, height);
+
+    // Transform pixel to [-1,1] range
+    float2 uv = float2((id.xy + _PixelOffset) / float2(width, height) * 2.0f - 1.0f);
+
+    // Fire a ray in a uniform direction from the source
+    Ray ray = CreateSphereRay(uv, (id.x * 8) + id.y);
+
+    // Trace and shade the ray
+    RayHit hit;
+    //float3 result = float3(0, 0, 0);
+    for (int i = 0; i < _Bounces; i++)
+    {
+        hit = Trace(ray);
+        //result += ray.energy * Shade(ray, hit);
+        CalculateEffects(ray, hit);
+
+        //if (!any(ray.energy))
+            //break;
+        if (ray.volume == 0.0f)
+            break;
+        if (hit.hitListener)
+            break;
+    }
+    //Kill all data on dead rays
+    if (!hit.hitListener)
+    {
+        ray.volume = 0.0f;
+        ray.delay = 0.0f;
+    }
+    else if (ray.volume == 0.0f)
+    {
+        ray.delay = 0.0f;
+    }
+    //Cap the delay at 1.0f
+    else if (ray.delay > 1.0f) 
+    {
+        ray.delay = 1.0f;
+    }
+
+    Result[id.xy] = float4(ray.volume, ray.delay, 0, 1);
+}
