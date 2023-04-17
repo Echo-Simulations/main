@@ -11,3 +11,9 @@
 1. Tag the listener as "Listener"
 1. Drag and drop TraceAudioRays.compute into the Ray Tracing Master.cs 'Ray Tracing Shader' field
 1. Press play
+
+## Set Graphics API
+
+1. File -> Build Settings -> Player settings... -> Player -> Settings for Windows, Mac, Linux -> Other settings
+2. Uncheck 'Auto Graphics API for Windows', remove DX11, and add Vulkan
+3. Restart Unity editor if prompted
