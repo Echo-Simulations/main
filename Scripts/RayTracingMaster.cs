@@ -28,7 +28,7 @@ public class RayTracingMaster : MonoBehaviour
         public Matrix4x4 localToWorldMatrix;
         public int indices_offset;
         public int indices_count;
-        public int isListener;
+        public int isSoundSource;
     }
 
     private void Awake()
@@ -103,7 +103,7 @@ public class RayTracingMaster : MonoBehaviour
             // Add the object itself
             _meshObjects.Add(new MeshObject()
             {
-                isListener = obj.isListener,
+                isSoundSource = obj.isSoundSource,
                 localToWorldMatrix = obj.transform.localToWorldMatrix,
                 indices_offset = firstIndex,
                 indices_count = indices.Length

@@ -19,14 +19,6 @@ int _Bounces;
 //- RANDOMNESS
 
 float2 _Pixel;
-float _Seed;
-
-float rand()
-{
-    float result = frac(sin(_Seed / 100.0f * dot(_Pixel, float2(12.9898f, 78.233f))) * 43758.5453f);
-    _Seed += 1.0f;
-    return result;
-}
 
 //-------------------------------------
 //- MESHES
@@ -36,7 +28,7 @@ struct MeshObject
 	float4x4 localToWorldMatrix;
 	int indices_offset;
 	int indices_count;
-    int isListener;
+    int isSoundSource;
 };
 
 StructuredBuffer<MeshObject> _MeshObjects;
@@ -94,7 +86,7 @@ struct RayHit
     float distance; //Assumes measured in meters
     float3 normal;
     float reflection; //How much sound will be reflected vs absorbed
-    bool hitListener;
+    bool hitSoundSource;
 };
 
 RayHit CreateRayHit()
@@ -104,7 +96,7 @@ RayHit CreateRayHit()
     hit.distance = 1.#INF;
     hit.normal = float3(0.0f, 0.0f, 0.0f);
     hit.reflection = 0.0f;
-    hit.hitListener = 0;
+    hit.hitSoundSource = 0;
     return hit;
 }
 
@@ -168,7 +160,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 		{
 			if (t > 0 && t < bestHit.distance)
 			{
-                bestHit.hitListener = meshObject.isListener;
+                bestHit.hitSoundSource = meshObject.isSoundSource;
 				bestHit.distance = t;
 				bestHit.position = ray.origin + t * ray.direction;
 				bestHit.normal = normalize(cross(v1 - v0, v2 - v0));
@@ -199,34 +191,6 @@ RayHit Trace(Ray ray)
 
 
 //-------------------------------------
-//- SAMPLING
-
-float3x3 GetTangentSpace(float3 normal)
-{
-    // Choose a helper vector for the cross product
-    float3 helper = float3(1, 0, 0);
-    if (abs(normal.x) > 0.99f)
-        helper = float3(0, 0, 1);
-
-    // Generate vectors
-    float3 tangent = normalize(cross(normal, helper));
-    float3 binormal = normalize(cross(normal, tangent));
-    return float3x3(tangent, binormal, normal);
-}
-
-float3 SampleHemisphere(float3 normal, float alpha)
-{
-    // Sample the hemisphere, where alpha determines the kind of the sampling
-    float cosTheta = pow(rand(), 1.0f / (alpha + 1.0f));
-    float sinTheta = sqrt(1.0f - cosTheta * cosTheta);
-    float phi = 2 * PI * rand();
-    float3 tangentSpaceDir = float3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-
-    // Transform direction to world space
-    return mul(tangentSpaceDir, GetTangentSpace(normal));
-}
-
-//-------------------------------------
 //- CALCULATE
 
 void CalculateEffects(inout Ray ray, RayHit hit)
@@ -235,7 +199,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
     {
         // Specular reflection
         ray.origin = hit.position + hit.normal * 0.001f;
-        ray.direction = SampleHemisphere(reflect(ray.direction, hit.normal), 1);
+        ray.direction = reflect(ray.direction, hit.normal);
         //Distance falloff
         //Currently rather extreme
         if(hit.distance > 1.0f)
@@ -281,11 +245,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
         if (ray.volume == 0.0f)
             break;
-        if (hit.hitListener)
+        if (hit.hitSoundSource)
             break;
     }
     //Kill all data on dead rays
-    if (!hit.hitListener)
+    if (!hit.hitSoundSource)
     {
         ray.volume = 0.0f;
         ray.delay = 0.0f;
