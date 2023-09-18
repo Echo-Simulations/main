@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 public class RayTracingMaster : MonoBehaviour
 {
@@ -8,6 +9,7 @@ public class RayTracingMaster : MonoBehaviour
 
     [Header("Customization")]
     public int Bounces = 7;
+    public int Diffractions = 0;
 
     private Camera _camera;
     private float _lastFieldOfView;
@@ -164,6 +166,7 @@ public class RayTracingMaster : MonoBehaviour
         RayTracingShader.SetFloat("_Seed", Random.value);
 
         RayTracingShader.SetInt("_Bounces", Bounces+1);
+        RayTracingShader.SetInt("_Diffractions", Diffractions);
 
         SetComputeBuffer("_MeshObjects", _meshObjectBuffer);
         SetComputeBuffer("_Vertices", _vertexBuffer);
@@ -182,7 +185,9 @@ public class RayTracingMaster : MonoBehaviour
 
             // Get a render target for Ray Tracing
             _target = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.ARGBFloat, RenderTextureReadWrite.Linear);
+                RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+            _target.dimension = TextureDimension.Tex2DArray;
+            _target.volumeDepth = Diffractions+1;
             _target.enableRandomWrite = true;
             _target.Create();
         }
@@ -197,16 +202,26 @@ public class RayTracingMaster : MonoBehaviour
         RayTracingShader.SetTexture(0, "Result", _target);
         int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
-        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, 1);
+        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, Diffractions+1);
 
         // Blit the result texture to the screen
-        Graphics.Blit(_target, destination);
+        //Graphics.Blit(_target, destination);
+
+        //Get the data back into a Texture2DArray
+        Texture2DArray finished_array = new Texture2DArray(_target.width, _target.height, _target.volumeDepth, TextureFormat.ARGB32, false, true);
+        Graphics.CopyTexture(_target, finished_array);
+        finished_array.Apply();
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
-        RebuildMeshObjectBuffers();
-        SetShaderParameters();
-        Render(destination);
+        //Only re-render if something has changed.
+        //Causes Unity to throw a warning. Just ignore it, this is intentional.
+        if (_meshObjectsNeedRebuilding)
+        {
+            RebuildMeshObjectBuffers();
+            SetShaderParameters();
+            Render(destination);
+        }
     }
 }

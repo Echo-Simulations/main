@@ -1,6 +1,6 @@
 ﻿#pragma kernel CSMain
 
-RWTexture2D<float4> Result;
+RWTexture2DArray<float4> Result;
 //Red channel represents volume (as a percent)
 //Green channel represents delay (up to 1 second)
 
@@ -14,6 +14,7 @@ static const float PHI = PI * (3.0f - 2.23606798f);
 
 //- CONTROLS
 int _Bounces;
+int _Diffractions;
 
 //-------------------------------------
 //- RANDOMNESS
@@ -226,8 +227,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     _Pixel = id.xy;
 
     // Get the dimensions of the RenderTexture
-    uint width, height;
-    Result.GetDimensions(width, height);
+    uint width, height, depth;
+    Result.GetDimensions(width, height, depth);
 
     // Transform pixel to [-1,1] range
     float2 uv = float2((id.xy + _PixelOffset) / float2(width, height) * 2.0f - 1.0f);
@@ -264,5 +265,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         ray.delay = 1.0f;
     }
 
-    Result[id.xy] = float4(ray.volume, ray.delay, 0, 1);
+    Result[id.xyz] = float4(ray.volume, ray.delay, 0, 1);
 }
