@@ -185,7 +185,7 @@ public class RayTracingMaster : MonoBehaviour
 
             // Get a render target for Ray Tracing
             _target = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.ARGB32, RenderTextureReadWrite.Linear);
+                RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear);
             _target.dimension = TextureDimension.Tex2DArray;
             _target.volumeDepth = Diffractions+1;
             _target.enableRandomWrite = true;
@@ -208,9 +208,14 @@ public class RayTracingMaster : MonoBehaviour
         //Graphics.Blit(_target, destination);
 
         //Get the data back into a Texture2DArray
-        Texture2DArray finished_array = new Texture2DArray(_target.width, _target.height, _target.volumeDepth, TextureFormat.ARGB32, false, true);
+        Texture2DArray finished_array = new Texture2DArray(_target.width, _target.height, _target.volumeDepth, TextureFormat.RFloat, false, true);
         Graphics.CopyTexture(_target, finished_array);
-        finished_array.Apply();
+        //finished_array.Apply();
+
+        //View a slice of the array
+        Texture2D slice = new Texture2D(_target.width, _target.height, TextureFormat.RFloat, false, true);
+        Graphics.CopyTexture(_target, 0, 0, slice, 0, 0);
+        Graphics.Blit(slice, destination);
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
