@@ -34,6 +34,7 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer _vertexBuffer;
     private ComputeBuffer _indexBuffer;
     private NativeArray<byte> _buffer;
+    private bool isBusy = false;
 
     struct MeshObject
     {
@@ -45,7 +46,7 @@ public class RayTracingMaster : MonoBehaviour
 
     private void Start()
     {
-        _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+        
     }
 
     private void Awake()
@@ -238,7 +239,12 @@ public class RayTracingMaster : MonoBehaviour
         //Graphics.Blit(_target, destination);
 
         //Use an asynchronous readback request to get the data out of the render texture
-        AsyncGPUReadback.RequestIntoNativeArray(ref _buffer, _target, 0, OnCompleteReadback);
+        if (isBusy == false)
+        {
+            isBusy = true;
+            _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            AsyncGPUReadback.RequestIntoNativeArray(ref _buffer, _target, 0, OnCompleteReadback);
+        }
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -257,12 +263,13 @@ public class RayTracingMaster : MonoBehaviour
     {
         if (request.hasError)
         {
-            Debug.Log("GPU readback error detected.");
+            //Debug.Log("GPU readback error detected.");
+            isBusy = false;
             return;
         }
         else
         {
-            Debug.Log("Native Array acquired.");
+            //Debug.Log("Native Array acquired.");
 
             int count = 0;
             for(int i = 0; i < _buffer.Length; i++)
@@ -272,8 +279,10 @@ public class RayTracingMaster : MonoBehaviour
                     count++;
                 }
             }
-            Debug.Log(count);
-            Debug.Log(_buffer.Length);
+            //Debug.Log(count);
+            //Debug.Log(_buffer.Length);
         }
+        _buffer.Dispose();
+        isBusy = false;
     }
 }
