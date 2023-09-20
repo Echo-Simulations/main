@@ -71,7 +71,10 @@ public class RayTracingMaster : MonoBehaviour
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
-        _buffer.Dispose();
+        if (_buffer.IsCreated)
+        {
+            _buffer.Dispose();
+        }
     }
 
     private void Update()
