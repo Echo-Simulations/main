@@ -59,17 +59,19 @@ public class RayTracingMaster : MonoBehaviour
     private void OnEnable()
     {
         if (_id == System.Guid.Empty)
+	{
             _id = System.Guid.NewGuid();
+	}
     }
 
     private void OnDisable()
     {
+        _id = System.Guid.Empty;
+
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
         _buffer.Dispose();
-
-        _id = System.Guid.Empty;
     }
 
     private void Update()
@@ -90,6 +92,7 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(obj.transform);
         _meshObjectsNeedRebuilding = true;
     }
+
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
