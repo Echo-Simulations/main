@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -14,6 +14,12 @@ public class RayTracingMaster : MonoBehaviour
     public int w = Screen.width;
     public int h = Screen.height;
 
+    public System.Guid id
+    {
+        get { return _id; }
+    }
+
+    private System.Guid _id = System.Guid.Empty;
     private Camera _camera;
     private float _lastFieldOfView;
     private Transform _transform;
@@ -50,12 +56,20 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(transform);
     }
 
+    private void OnEnable()
+    {
+        if (_id == System.Guid.Empty)
+            _id = System.Guid.NewGuid();
+    }
+
     private void OnDisable()
     {
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
         _buffer.Dispose();
+
+        _id = System.Guid.Empty;
     }
 
     private void Update()
