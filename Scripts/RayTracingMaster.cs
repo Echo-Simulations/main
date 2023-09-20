@@ -2,6 +2,7 @@
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Rendering;
+using Unity.Collections;
 
 public class RayTracingMaster : MonoBehaviour
 {
@@ -10,6 +11,8 @@ public class RayTracingMaster : MonoBehaviour
     [Header("Customization")]
     public int Bounces = 7;
     public int Diffractions = 0;
+    public int w = Screen.width;
+    public int h = Screen.height;
 
     private Camera _camera;
     private float _lastFieldOfView;
@@ -24,6 +27,7 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer _meshObjectBuffer;
     private ComputeBuffer _vertexBuffer;
     private ComputeBuffer _indexBuffer;
+    private NativeArray<byte> _buffer;
 
     struct MeshObject
     {
@@ -31,6 +35,11 @@ public class RayTracingMaster : MonoBehaviour
         public int indices_offset;
         public int indices_count;
         public int isSoundSource;
+    }
+
+    private void Start()
+    {
+        _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
     }
 
     private void Awake()
@@ -46,6 +55,7 @@ public class RayTracingMaster : MonoBehaviour
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
+        _buffer.Dispose();
     }
 
     private void Update()
@@ -175,7 +185,7 @@ public class RayTracingMaster : MonoBehaviour
 
     private void InitRenderTexture()
     {
-        if (_target == null || _target.width != Screen.width || _target.height != Screen.height)
+        if (_target == null || _target.width != w || _target.height != h)
         {
             // Release render texture if we already have one
             if (_target != null)
@@ -184,8 +194,8 @@ public class RayTracingMaster : MonoBehaviour
             }
 
             // Get a render target for Ray Tracing
-            _target = new RenderTexture(Screen.width, Screen.height, 0,
-                RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear);
+            _target = new RenderTexture(w, h, 0,
+                RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
             _target.dimension = TextureDimension.Tex2DArray;
             _target.volumeDepth = Diffractions+1;
             _target.enableRandomWrite = true;
@@ -200,22 +210,15 @@ public class RayTracingMaster : MonoBehaviour
 
         // Set the target and dispatch the compute shader
         RayTracingShader.SetTexture(0, "Result", _target);
-        int threadGroupsX = Mathf.CeilToInt(Screen.width / 8.0f);
-        int threadGroupsY = Mathf.CeilToInt(Screen.height / 8.0f);
+        int threadGroupsX = Mathf.CeilToInt(w / 8.0f);
+        int threadGroupsY = Mathf.CeilToInt(h / 8.0f);
         RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, Diffractions+1);
 
         // Blit the result texture to the screen
         //Graphics.Blit(_target, destination);
 
-        //Get the data back into a Texture2DArray
-        Texture2DArray finished_array = new Texture2DArray(_target.width, _target.height, _target.volumeDepth, TextureFormat.RFloat, false, true);
-        Graphics.CopyTexture(_target, finished_array);
-        //finished_array.Apply();
-
-        //View a slice of the array
-        Texture2D slice = new Texture2D(_target.width, _target.height, TextureFormat.RFloat, false, true);
-        Graphics.CopyTexture(_target, 0, 0, slice, 0, 0);
-        Graphics.Blit(slice, destination);
+        //Use an asynchronous readback request to get the data out of the render texture
+        AsyncGPUReadback.RequestIntoNativeArray(ref _buffer, _target, 0, OnCompleteReadback);
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
@@ -227,6 +230,30 @@ public class RayTracingMaster : MonoBehaviour
             RebuildMeshObjectBuffers();
             SetShaderParameters();
             Render(destination);
+        }
+    }
+
+    private void OnCompleteReadback(AsyncGPUReadbackRequest request)
+    {
+        if (request.hasError)
+        {
+            Debug.Log("GPU readback error detected.");
+            return;
+        }
+        else
+        {
+            Debug.Log("Native Array acquired.");
+
+            int count = 0;
+            for(int i = 0; i < _buffer.Length; i++)
+            {
+                if(_buffer[i] != 0)
+                {
+                    count++;
+                }
+            }
+            Debug.Log(count);
+            Debug.Log(_buffer.Length);
         }
     }
 }
