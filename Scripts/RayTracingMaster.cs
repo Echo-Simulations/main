@@ -9,10 +9,10 @@ public class RayTracingMaster : MonoBehaviour
     public ComputeShader RayTracingShader;
 
     [Header("Customization")]
-    public int Bounces = 7;
-    public int Diffractions = 0;
-    public int w = Screen.width;
-    public int h = Screen.height;
+    public int Bounces = 7; //The maximum number of reflections allowed
+    public int Diffractions = 0; //The maximum number of diffractions allowed
+    public int w = Screen.width; //The width of the ray tracing texture
+    public int h = Screen.height; //The height of the ray tracing texture
 
     public System.Guid id
     {
@@ -20,21 +20,25 @@ public class RayTracingMaster : MonoBehaviour
     }
 
     private System.Guid _id = System.Guid.Empty;
-    private Camera _camera;
-    private float _lastFieldOfView;
-    private Transform _transform;
-    private RenderTexture _target;
-    private static List<Transform> _transformsToWatch = new List<Transform>();
-    private static bool _meshObjectsNeedRebuilding = false;
-    private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>();
-    private static List<MeshObject> _meshObjects = new List<MeshObject>();
-    private static List<Vector3> _vertices = new List<Vector3>();
-    private static List<int> _indices = new List<int>();
-    private ComputeBuffer _meshObjectBuffer;
-    private ComputeBuffer _vertexBuffer;
-    private ComputeBuffer _indexBuffer;
-    private NativeArray<byte> _buffer;
-    private bool isBusy = false;
+
+    private Transform _transform; //The transform of the listener (the object this script is attached to)
+    private RenderTexture _target; //The texture the GPU writes to; does not exist in CPU memory
+
+    private static List<Transform> _transformsToWatch = new List<Transform>(); //An array of transforms of relevant objects
+    private static bool _meshObjectsNeedRebuilding = false; //A flag for if the scene has changed
+    private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
+
+    private static List<MeshObject> _meshObjects = new List<MeshObject>(); //An array of all mesh data in the scene in the CPU
+    private static List<Vector3> _vertices = new List<Vector3>(); //An array of all vertexes in the scene in the CPU
+    private static List<int> _indices = new List<int>(); //An array of all polygon data in the scene in the CPU
+    private ComputeBuffer _meshObjectBuffer; //An array of all mesh data in the scene in the GPU
+    private ComputeBuffer _vertexBuffer; //An array of all vertexes in the scene in the GPU
+    private ComputeBuffer _indexBuffer; //An array of all polygon data in the scene in the GPU
+
+    private NativeArray<byte> _buffer; //The return value of the ray tracing, expressed as a byte array
+    private bool _isBusy = false; //Used to avoid timing issues
+
+    private int _parameterCount = 1; //Represents the number of channels necessary per ray
 
     struct MeshObject
     {
@@ -44,14 +48,8 @@ public class RayTracingMaster : MonoBehaviour
         public int isSoundSource;
     }
 
-    private void Start()
-    {
-        
-    }
-
     private void Awake()
     {
-        _camera = GetComponent<Camera>();
         _transform = GetComponent<Transform>();
 
         _transformsToWatch.Add(transform);
@@ -218,7 +216,7 @@ public class RayTracingMaster : MonoBehaviour
             _target = new RenderTexture(w, h, 0,
                 RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
             _target.dimension = TextureDimension.Tex2DArray;
-            _target.volumeDepth = Diffractions+1;
+            _target.volumeDepth = (Diffractions+1) * _parameterCount;
             _target.enableRandomWrite = true;
             _target.Create();
         }
@@ -233,16 +231,16 @@ public class RayTracingMaster : MonoBehaviour
         RayTracingShader.SetTexture(0, "Result", _target);
         int threadGroupsX = Mathf.CeilToInt(w / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(h / 8.0f);
-        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, Diffractions+1);
+        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1) * _parameterCount);
 
         // Blit the result texture to the screen
         //Graphics.Blit(_target, destination);
 
         //Use an asynchronous readback request to get the data out of the render texture
-        if (isBusy == false)
+        if (_isBusy == false)
         {
-            isBusy = true;
-            _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            _isBusy = true;
+            _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * _parameterCount * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             AsyncGPUReadback.RequestIntoNativeArray(ref _buffer, _target, 0, OnCompleteReadback);
         }
     }
@@ -264,7 +262,7 @@ public class RayTracingMaster : MonoBehaviour
         if (request.hasError)
         {
             //Debug.Log("GPU readback error detected.");
-            isBusy = false;
+            _isBusy = false;
             return;
         }
         else
@@ -283,6 +281,6 @@ public class RayTracingMaster : MonoBehaviour
             //Debug.Log(_buffer.Length);
         }
         _buffer.Dispose();
-        isBusy = false;
+        _isBusy = false;
     }
 }
