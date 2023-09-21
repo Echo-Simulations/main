@@ -86,6 +86,8 @@ struct RayHit
     float3 position;
     float distance; //Assumes measured in meters
     float3 normal;
+    uint index; //Represents the index in the index buffer where the polygon is described
+
     float reflection; //How much sound will be reflected vs absorbed
     bool hitSoundSource;
 };
@@ -96,6 +98,8 @@ RayHit CreateRayHit()
     hit.position = float3(0.0f, 0.0f, 0.0f);
     hit.distance = 1.#INF;
     hit.normal = float3(0.0f, 0.0f, 0.0f);
+    hit.index = 0;
+
     hit.reflection = 0.0f;
     hit.hitSoundSource = 0;
     return hit;
@@ -165,11 +169,45 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 				bestHit.distance = t;
 				bestHit.position = ray.origin + t * ray.direction;
 				bestHit.normal = normalize(cross(v1 - v0, v2 - v0));
+                bestHit.index = i;
                 //Determine the properties of the collision
                 bestHit.reflection = 1.0f;
 			}
 		}
 	}
+}
+
+void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject)
+{
+    uint offset = meshObject.indices_offset;
+    uint count = offset + meshObject.indices_count;
+    for (uint i = offset; i < count; i += 3)
+    {
+        //Check for polys that share 2 vertices
+        int shared_vertices = 0;
+        if (_Indices[collision.index] == _Indices[i] || _Indices[collision.index] == _Indices[i + 1] || _Indices[collision.index] == _Indices[i + 2]) {
+            shared_vertices++;
+        }
+        if (_Indices[collision.index + 1] == _Indices[i] || _Indices[collision.index + 1] == _Indices[i + 1] || _Indices[collision.index + 1] == _Indices[i + 2]) {
+            shared_vertices++;
+        }
+        if (_Indices[collision.index + 2] == _Indices[i] || _Indices[collision.index + 2] == _Indices[i + 1] || _Indices[collision.index + 2] == _Indices[i + 2]) {
+            shared_vertices++;
+        }
+            
+        if(shared_vertices == 2)
+        {
+            float3 v0 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i]], 1))).xyz;
+            float3 v1 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1))).xyz;
+            float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
+
+            //Compare normals
+            if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < 1.57079633)
+            {
+                    //Diffraction is possible
+            }
+        }
+    }
 }
 
 //-------------------------------------
@@ -178,6 +216,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 RayHit Trace(Ray ray)
 {
 	RayHit bestHit = CreateRayHit();
+    Ray diffracted_ray = CreateRay(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 0.0f));
 	uint count, stride, i;
 
 	// Trace mesh objects
@@ -186,6 +225,15 @@ RayHit Trace(Ray ray)
 	{
 		IntersectMeshObject(ray, bestHit, _MeshObjects[i]);
 	}
+    // Check if diffraction can occur
+    for (i = 0; i < count; i++) {
+        MeshObject obj = _MeshObjects[i];
+        //Only check the same mesh as the hit object
+        if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index) {
+            //Check if there is a possible diffraction
+            CheckDiffraction(ray, diffracted_ray, bestHit, obj);
+        }
+    }
 
 	return bestHit;
 }

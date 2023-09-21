@@ -277,7 +277,7 @@ public class RayTracingMaster : MonoBehaviour
                     count++;
                 }
             }
-            //Debug.Log(count);
+            Debug.Log(count);
             //Debug.Log(_buffer.Length);
         }
         _buffer.Dispose();
