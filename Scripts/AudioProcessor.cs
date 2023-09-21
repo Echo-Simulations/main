@@ -14,4 +14,12 @@ public class AudioProcessor : MonoBehaviour
         _audioData = new float[_source.clip.samples*_source.clip.channels];
         _source.clip.GetData(_audioData, 0);
     }
+
+    public void PlayAudio()
+    {
+        // Pack sample data.
+        _source.clip.SetData(_audioData, 0);
+        //
+        _source.Play();
+    }
 }
