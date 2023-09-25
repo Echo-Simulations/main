@@ -18,15 +18,23 @@ public class RayTracingObject : MonoBehaviour
     public int isSoundSource = 0;
     public acousticBehavior acoustics;
 
+    private bool isRegistered = false; //Used to ensure only valid meshes are used
+
     private void OnEnable()
     {
-        RayTracingMaster.RegisterObject(this);
-        //if (gameObject.tag == "Listener") 
-        //    isSoundSource = 1;
+        if (this.gameObject.GetComponent<MeshFilter>().mesh != null)
+        {
+            RayTracingMaster.RegisterObject(this);
+            isRegistered = true;
+        }
     }
 
     private void OnDisable()
     {
-        RayTracingMaster.UnregisterObject(this);
+        if (isRegistered)
+        {
+            RayTracingMaster.UnregisterObject(this);
+            isRegistered = false;
+        }
     }
 }

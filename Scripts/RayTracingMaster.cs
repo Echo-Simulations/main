@@ -4,14 +4,20 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Unity.Collections;
 
+[RequireComponent(typeof(Camera))]
 public class RayTracingMaster : MonoBehaviour
 {
     public ComputeShader RayTracingShader;
 
     [Header("Customization")]
+    //Range values are mostly tentative/arbitrary EXCEPT FOR DIFFRACTIONS. DO NOT CHANGE DIFFRACTIONS.
+    [Range(0, 15)]
     public int Bounces = 7; //The maximum number of reflections allowed
+    [Range(0,7)]
     public int Diffractions = 0; //The maximum number of diffractions allowed
+    [Range(1, 1024)]
     public int w = Screen.width; //The width of the ray tracing texture
+    [Range(1, 1024)]
     public int h = Screen.height; //The height of the ray tracing texture
 
     public System.Guid id

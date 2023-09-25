@@ -202,7 +202,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
 
             //Compare normals
-            if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < 1.57079633)
+            if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < PI/2)
             {
                     //Diffraction is possible
             }
@@ -269,10 +269,10 @@ void CalculateEffects(inout Ray ray, RayHit hit)
 //-------------------------------------
 //- KERNEL
 
-[numthreads(8,8,1)]
+[numthreads(8,8,8)]
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
-    _Pixel = id.xy;
+    //_Pixel = id.xy;
 
     // Get the dimensions of the RenderTexture
     uint width, height, depth;
@@ -289,6 +289,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     //float3 result = float3(0, 0, 0);
     for (int i = 0; i < _Bounces; i++)
     {
+        GroupMemoryBarrierWithGroupSync(); //Synchronize threads to ensure proper timing
+
         hit = Trace(ray);
         CalculateEffects(ray, hit);
 
