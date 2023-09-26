@@ -210,7 +210,7 @@ public class RayTracingMaster : MonoBehaviour
 
     private void InitRenderTexture()
     {
-        if (_target == null || _target.width != w || _target.height != h)
+        if (_target == null || _target.width != w || _target.height != h || _target.volumeDepth != (Diffractions + 1) * _parameterCount)
         {
             // Release render texture if we already have one
             if (_target != null)
@@ -237,7 +237,7 @@ public class RayTracingMaster : MonoBehaviour
         RayTracingShader.SetTexture(0, "Result", _target);
         int threadGroupsX = Mathf.CeilToInt(w / 8.0f);
         int threadGroupsY = Mathf.CeilToInt(h / 8.0f);
-        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1) * _parameterCount);
+        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1));
 
         // Blit the result texture to the screen
         //Graphics.Blit(_target, destination);
