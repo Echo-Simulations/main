@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Unity.Collections;
 
 [RequireComponent(typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
@@ -19,6 +20,19 @@ public class AudioProcessor : MonoBehaviour
             _source.clip.GetData(_audioData, 0);
             _hasClip = true;
         }
+    }
+
+    public bool SendTexture(NativeArray<float> texture)
+    {
+        if (!texture.IsCreated)
+            return false;
+        float[] textureData = new float[texture.Length];
+        texture.CopyTo(textureData);
+        for (int i = 0; i < textureData.Length; i++)
+        {
+            // Manipulate _audioData.
+        }
+        return true;
     }
 
     public void PlayAudio()
