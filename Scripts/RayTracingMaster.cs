@@ -41,7 +41,7 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer _vertexBuffer; //An array of all vertexes in the scene in the GPU
     private ComputeBuffer _indexBuffer; //An array of all polygon data in the scene in the GPU
 
-    private NativeArray<byte> _buffer; //The return value of the ray tracing, expressed as a byte array
+    private NativeArray<float> _buffer; //The return value of the ray tracing, expressed as a float array
     private bool _isBusy = false; //Used to avoid timing issues
 
     private int _parameterCount = 1; //Represents the number of channels necessary per ray
@@ -220,7 +220,7 @@ public class RayTracingMaster : MonoBehaviour
 
             // Get a render target for Ray Tracing
             _target = new RenderTexture(w, h, 0,
-                RenderTextureFormat.R8, RenderTextureReadWrite.Linear);
+                RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear);
             _target.dimension = TextureDimension.Tex2DArray;
             _target.volumeDepth = (Diffractions+1) * _parameterCount;
             _target.enableRandomWrite = true;
@@ -246,7 +246,7 @@ public class RayTracingMaster : MonoBehaviour
         if (_isBusy == false)
         {
             _isBusy = true;
-            _buffer = new NativeArray<byte>(w * h * (Diffractions + 1) * _parameterCount * sizeof(byte), Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
+            _buffer = new NativeArray<float>(w * h * (Diffractions + 1) * _parameterCount, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
             AsyncGPUReadback.RequestIntoNativeArray(ref _buffer, _target, 0, OnCompleteReadback);
         }
     }
@@ -278,7 +278,7 @@ public class RayTracingMaster : MonoBehaviour
             int count = 0;
             for(int i = 0; i < _buffer.Length; i++)
             {
-                if(_buffer[i] != 0)
+                if(_buffer[i] > 0.0f)
                 {
                     count++;
                 }
