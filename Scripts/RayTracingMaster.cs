@@ -44,7 +44,8 @@ public class RayTracingMaster : MonoBehaviour
     private NativeArray<float> _buffer; //The return value of the ray tracing, expressed as a float array
     private bool _isBusy = false; //Used to avoid timing issues
 
-    private int _parameterCount = 1; //Represents the number of channels necessary per ray
+    private const int _parameterCount = 1; //Represents the number of channels necessary per ray
+    private const int _computeBufferCount = 3; //Represents the number of compute buffers we are using
 
     struct MeshObject
     {
@@ -56,6 +57,16 @@ public class RayTracingMaster : MonoBehaviour
 
     private void Awake()
     {
+        //Test if there is hardware support for all of the features the program needs
+        if (!(SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RFloat) &&
+            SystemInfo.supports2DArrayTextures &&
+            SystemInfo.supportsAsyncGPUReadback &&
+            SystemInfo.supportsComputeShaders &&
+            SystemInfo.maxComputeBufferInputsCompute >= _computeBufferCount))
+        {
+            Debug.LogError("This device does not have hardware support for this package.");
+        }
+
         _transform = GetComponent<Transform>();
 
         _transformsToWatch.Add(transform);
@@ -115,7 +126,6 @@ public class RayTracingMaster : MonoBehaviour
         }
 
         _meshObjectsNeedRebuilding = false;
-        //_currentSample = 0;
 
         // Clear all lists
         _meshObjects.Clear();
@@ -168,8 +178,7 @@ public class RayTracingMaster : MonoBehaviour
 
         if (data.Count != 0)
         {
-            // If the buffer has been released or wasn't there to
-            // begin with, create it
+            // If the buffer has been released or wasn't there to begin with, create it
             if (buffer == null)
             {
                 buffer = new ComputeBuffer(data.Count, stride);
