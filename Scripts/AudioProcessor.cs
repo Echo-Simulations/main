@@ -1,7 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Unity.Collections;
 
 [RequireComponent(typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
@@ -22,15 +21,19 @@ public class AudioProcessor : MonoBehaviour
         }
     }
 
-    public bool SendTexture(NativeArray<float> texture)
+    // NOTE: The data array could also be two-dimensional. Change the
+    //       type from float[] to float[,] as necessary to match
+    //       RayTracingMaster.
+    public bool SendTexture(float[] data, int height, int width)
     {
-        if (!texture.IsCreated)
-            return false;
-        float[] textureData = new float[texture.Length];
-        texture.CopyTo(textureData);
-        for (int i = 0; i < textureData.Length; i++)
+        // Traverse in row-major order.
+        for (int i = 0; i < height; i++)
         {
-            // Manipulate _audioData.
+            for (int j = 0; j < width; j++)
+            {
+                // Manipulate _audioData, returning false if there was an error.
+                // .. if (error) return false;
+            }
         }
         return true;
     }
