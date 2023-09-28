@@ -92,7 +92,7 @@ struct RayHit
     float3 position;
     float distance; //Assumes measured in meters
     float3 normal;
-    uint index; //Represents the index in the index buffer where the polygon is described
+    int index; //Represents the index in the index buffer where the polygon is described
 
     float reflection; //How much sound will be reflected vs absorbed
     bool hitSoundSource;
@@ -183,7 +183,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 	}
 }
 
-void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint group)
+void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint group, out bool success)
 {
     uint offset = meshObject.indices_offset;
     uint count = offset + meshObject.indices_count;
@@ -240,6 +240,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
                     //Apply the changes to the buffers
                     _RayPos[group + index * width * height] = new_pos;
                     _RayDir[group + index * width * height] = normalize(normalize(cross(v1 - v0, v2 - v0)) + ray.direction);
+                    success = true;
                 }
             }
         }
@@ -254,6 +255,7 @@ RayHit Trace(Ray ray, uint group)
 	RayHit bestHit = CreateRayHit();
     Ray diffracted_ray = CreateRay(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 0.0f));
 	uint count, stride, i;
+    bool diffracted = false;
 
 	// Trace mesh objects
 	_MeshObjects.GetDimensions(count, stride);
@@ -267,7 +269,9 @@ RayHit Trace(Ray ray, uint group)
         //Only check the same mesh as the hit object
         if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index) {
             //Check if there is a possible diffraction
-            CheckDiffraction(ray, diffracted_ray, bestHit, obj, group);
+            if (!diffracted) {
+                CheckDiffraction(ray, diffracted_ray, bestHit, obj, group, diffracted);
+            }
         }
     }
 
@@ -344,9 +348,9 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         hit = Trace(ray, id.x + id.y * width);
         CalculateEffects(ray, hit);
 
-        if (ray.volume == 0.0f)
-            break;
-        if (hit.hitSoundSource)
+        /*if (ray.volume == 0.0f && enabled)
+            break;*/
+        if (hit.hitSoundSource && enabled)
             break;
     }
     //Kill all data on dead rays
