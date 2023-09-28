@@ -1,4 +1,4 @@
-﻿#pragma kernel CSMain
+#pragma kernel CSMain
 
 RWTexture2DArray<float> Result;
 //Red channel represents volume (as a percent)
