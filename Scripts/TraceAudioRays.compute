@@ -1,8 +1,7 @@
-#pragma kernel CSMain
+﻿#pragma kernel CSMain
 
 RWTexture2DArray<float> Result;
-//Red channel represents volume (as a percent)
-//Green channel represents delay (up to 1 second)
+//Depth is equal to _Diffractions * _ParameterCount
 
 float4x4 _Source;
 
@@ -15,6 +14,9 @@ static const float PHI = PI * (3.0f - 2.23606798f);
 //- CONTROLS
 int _Bounces;
 int _Diffractions;
+int _ParameterCount = 1;
+//Channels are as follows:
+// 0: Target Mesh (0 means did not hit)
 
 //-------------------------------------
 //- RANDOMNESS
@@ -35,6 +37,10 @@ struct MeshObject
 StructuredBuffer<MeshObject> _MeshObjects;
 StructuredBuffer<float3> _Vertices;
 StructuredBuffer<int> _Indices;
+
+RWStructuredBuffer<float3> _RayPos;
+RWStructuredBuffer<float3> _RayDir;
+RWStructuredBuffer<int> _RayEnabled;
 
 
 //-------------------------------------
@@ -177,22 +183,26 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 	}
 }
 
-void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject)
+void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint group)
 {
     uint offset = meshObject.indices_offset;
     uint count = offset + meshObject.indices_count;
+    bool3 shared_vertices_flags = bool3(false, false, false);
     for (uint i = offset; i < count; i += 3)
     {
         //Check for polys that share 2 vertices
         int shared_vertices = 0;
         if (_Indices[collision.index] == _Indices[i] || _Indices[collision.index] == _Indices[i + 1] || _Indices[collision.index] == _Indices[i + 2]) {
             shared_vertices++;
+            shared_vertices_flags.x = true;
         }
         if (_Indices[collision.index + 1] == _Indices[i] || _Indices[collision.index + 1] == _Indices[i + 1] || _Indices[collision.index + 1] == _Indices[i + 2]) {
             shared_vertices++;
+            shared_vertices_flags.y = true;
         }
         if (_Indices[collision.index + 2] == _Indices[i] || _Indices[collision.index + 2] == _Indices[i + 1] || _Indices[collision.index + 2] == _Indices[i + 2]) {
             shared_vertices++;
+            shared_vertices_flags.z = true;
         }
             
         if(shared_vertices == 2)
@@ -204,7 +214,33 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             //Compare normals
             if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < PI/2)
             {
-                    //Diffraction is possible
+                //Check if there is an open diffraction slot
+                int index;
+                InterlockedAdd(_RayEnabled[group], 1, index);
+                if (index <= _Diffractions) {
+                    //Diffraction occurs
+                    //Store the position and rotation values of the new vector
+                    uint width, height, depth;
+                    Result.GetDimensions(width, height, depth);
+                    
+                    //Calculate the new position (on the diffracting edge)
+                    float3 new_pos = float3(0.0f, 0.0f, 0.0f);
+                    if (shared_vertices_flags.x) {
+                        new_pos = new_pos + _Vertices[_Indices[collision.index]];
+                    }
+                    if (shared_vertices_flags.y) {
+                        new_pos = new_pos + _Vertices[_Indices[collision.index + 1]];
+                    }
+                    if (shared_vertices_flags.z) {
+                        new_pos = new_pos + _Vertices[_Indices[collision.index + 2]];
+                    }
+                    new_pos = new_pos / 2;
+                    new_pos = (mul(meshObject.localToWorldMatrix, float4(new_pos, 1))).xyz;
+
+                    //Apply the changes to the buffers
+                    _RayPos[group + index * width * height] = new_pos;
+                    _RayDir[group + index * width * height] = normalize(normalize(cross(v1 - v0, v2 - v0)) + ray.direction);
+                }
             }
         }
     }
@@ -213,7 +249,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
 //-------------------------------------
 //- TRACE
 
-RayHit Trace(Ray ray)
+RayHit Trace(Ray ray, uint group)
 {
 	RayHit bestHit = CreateRayHit();
     Ray diffracted_ray = CreateRay(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 0.0f));
@@ -231,7 +267,7 @@ RayHit Trace(Ray ray)
         //Only check the same mesh as the hit object
         if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index) {
             //Check if there is a possible diffraction
-            CheckDiffraction(ray, diffracted_ray, bestHit, obj);
+            CheckDiffraction(ray, diffracted_ray, bestHit, obj, group);
         }
     }
 
@@ -273,6 +309,10 @@ void CalculateEffects(inout Ray ray, RayHit hit)
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     //_Pixel = id.xy;
+    bool enabled = false;
+    if (id.z == 0) {
+        enabled = true;
+    }
 
     // Get the dimensions of the RenderTexture
     uint width, height, depth;
@@ -291,7 +331,17 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     {
         GroupMemoryBarrierWithGroupSync(); //Synchronize threads to ensure proper timing
 
-        hit = Trace(ray);
+        if (!(_RayDir[id.x + id.y * width + id.z * width * height].x == 0.0f && 
+            _RayDir[id.x + id.y * width + id.z * width * height].y == 0.0f && 
+            _RayDir[id.x + id.y * width + id.z * width * height].z == 0.0f))
+        {
+            enabled = true;
+            //Apply the position and rotation values to the vector
+            ray.origin = _RayPos[id.x + id.y * width + id.z * width * height];
+            ray.direction = _RayDir[id.x + id.y * width + id.z * width * height];
+        }
+
+        hit = Trace(ray, id.x + id.y * width);
         CalculateEffects(ray, hit);
 
         if (ray.volume == 0.0f)
@@ -309,11 +359,15 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     {
         ray.delay = 0.0f;
     }
+
     //Cap the delay at 1.0f
     else if (ray.delay > 1.0f) 
     {
         ray.delay = 1.0f;
     }
 
-    Result[id.xyz] = ray.volume;
+    //Valid rays write to the end texture
+    if (enabled) {
+        Result[id.xyz] = ray.volume;
+    }
 }

@@ -41,11 +41,18 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer _vertexBuffer; //An array of all vertexes in the scene in the GPU
     private ComputeBuffer _indexBuffer; //An array of all polygon data in the scene in the GPU
 
+    private static List<Vector3> _rayPos = new List<Vector3>();
+    private static List<Vector3> _rayDir = new List<Vector3>();
+    private static List<int> _rayEnabled = new List<int>();
+    private ComputeBuffer _rayPosBuffer;
+    private ComputeBuffer _rayDirBuffer;
+    private ComputeBuffer _rayEnabledBuffer;
+
     private NativeArray<float> _buffer; //The return value of the ray tracing, expressed as a float array
     private bool _isBusy = false; //Used to avoid timing issues
 
     private const int _parameterCount = 1; //Represents the number of channels necessary per ray
-    private const int _computeBufferCount = 3; //Represents the number of compute buffers we are using
+    private const int _computeBufferCount = 6; //Represents the number of compute buffers we are using
 
     struct MeshObject
     {
@@ -87,6 +94,9 @@ public class RayTracingMaster : MonoBehaviour
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
+        _rayPosBuffer?.Release();
+        _rayDirBuffer?.Release();
+        _rayEnabledBuffer?.Release();
         if (_buffer.IsCreated)
         {
             _buffer.Dispose();
@@ -215,6 +225,25 @@ public class RayTracingMaster : MonoBehaviour
         SetComputeBuffer("_MeshObjects", _meshObjectBuffer);
         SetComputeBuffer("_Vertices", _vertexBuffer);
         SetComputeBuffer("_Indices", _indexBuffer);
+
+        _rayPos.Clear();
+        _rayDir.Clear();
+        _rayEnabled.Clear();
+        for (int i = 0; i < w * h * (Diffractions + 1); i++)
+        {
+            _rayPos.Add(new Vector3(0.0f, 0.0f, 0.0f));
+            _rayDir.Add(new Vector3(0.0f, 0.0f, 0.0f));
+            if(i < w * h)
+            {
+                _rayEnabled.Add(0);
+            }
+        }
+        CreateComputeBuffer(ref _rayPosBuffer, _rayPos, 12);
+        CreateComputeBuffer(ref _rayDirBuffer, _rayDir, 12);
+        CreateComputeBuffer(ref _rayEnabledBuffer, _rayEnabled, 4);
+        SetComputeBuffer("_RayPos", _rayPosBuffer);
+        SetComputeBuffer("_RayDir", _rayDirBuffer);
+        SetComputeBuffer("_RayEnabled", _rayEnabledBuffer);
     }
 
     private void InitRenderTexture()
@@ -284,6 +313,8 @@ public class RayTracingMaster : MonoBehaviour
         {
             //Debug.Log("Native Array acquired.");
 
+            //This is where you would make the program use the buffer data
+            //Right now, make it print some basic data
             int count = 0;
             for(int i = 0; i < _buffer.Length; i++)
             {
