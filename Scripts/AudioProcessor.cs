@@ -28,6 +28,22 @@ public class AudioProcessor : MonoBehaviour
         StopAudio();
     }
 
+    // NOTE: This can be called while the audio is playing to dynamically
+    //       update the properties of the playing sound immediately. All
+    //       audio manipulation should be followed by a call to UpdateAudio().
+    private void UpdateAudio()
+    {
+        if (_hasClip)
+        {
+            // Pack sample data.
+            _source.clip.SetData(_audioData, 0);
+        }
+        else
+        {
+            Debug.Log("[" + GetType().ToString() + "] Warning: Failed to update audio data.");
+        }
+    }
+
     // TODO: The data array could also be two-dimensional. Change the
     //       type from float[] to float[,] as necessary to match
     //       RayTracingMaster.
@@ -44,22 +60,6 @@ public class AudioProcessor : MonoBehaviour
         }
         UpdateAudio();
         return true;
-    }
-
-    // NOTE: This can be called while the audio is playing to dynamically
-    //       update the properties of the playing sound immediately. All
-    //       audio manipulation should be followed by a call to UpdateAudio().
-    public void UpdateAudio()
-    {
-        if (_hasClip)
-        {
-            // Pack sample data.
-            _source.clip.SetData(_audioData, 0);
-        }
-        else
-        {
-            Debug.Log("[" + GetType().ToString() + "] Warning: Failed to update audio data.");
-        }
     }
 
     public void PlayAudio()
