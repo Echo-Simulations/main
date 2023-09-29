@@ -9,7 +9,7 @@ public class AudioProcessor : MonoBehaviour
     private float[] _audioData;
     private bool _hasClip = false;
 
-    void Start()
+    private void Start()
     {
         // Unpack sample data.
         _source = GetComponent<AudioSource>();
@@ -21,6 +21,11 @@ public class AudioProcessor : MonoBehaviour
             _hasClip = true;
         }
         PlayAudio();
+    }
+
+    private void OnDestroy()
+    {
+        StopAudio();
     }
 
     // TODO: The data array could also be two-dimensional. Change the
@@ -59,12 +64,35 @@ public class AudioProcessor : MonoBehaviour
 
     public void PlayAudio()
     {
-        if (_hasClip)
+        if (_hasClip && !_source.isPlaying)
         {
             // Ensure audio is up-to-date before playing.
             UpdateAudio();
-            //
-            _source.Play();
+            // Either unpause or play the source.
+            if (_source.time == 0f)
+            {
+                _source.Play();
+            }
+            else
+            {
+                _source.UnPause();
+            }
+        }
+    }
+
+    public void StopAudio(bool pause = false)
+    {
+        if (_hasClip && _source.isPlaying)
+        {
+            // Either pause or stop the source.
+            if (pause)
+            {
+                _source.Pause();
+            }
+            else
+            {
+                _source.Stop();
+            }
         }
     }
 }
