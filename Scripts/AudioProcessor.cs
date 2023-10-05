@@ -25,7 +25,19 @@ public class AudioProcessor : MonoBehaviour
 
     private void OnDestroy()
     {
-        StopAudio();
+        StopAudio(false);
+    }
+
+    private void OnEnable()
+    {
+        // Start playing audio on object enable.
+        PlayAudio();
+    }
+
+    private void OnDisable()
+    {
+        // Stop all audio on object disable.
+        StopAudio(false);
     }
 
     // NOTE: This can be called while the audio is playing to dynamically
@@ -80,7 +92,7 @@ public class AudioProcessor : MonoBehaviour
         }
     }
 
-    public void StopAudio(bool pause = false)
+    public void StopAudio(bool pause)
     {
         if (_hasClip && _source.isPlaying)
         {
