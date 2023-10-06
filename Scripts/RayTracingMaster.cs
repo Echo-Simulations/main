@@ -20,13 +20,6 @@ public class RayTracingMaster : MonoBehaviour
     [Range(1, 1024)]
     public int h = Screen.height; //The height of the ray tracing texture
 
-    public System.Guid id
-    {
-        get { return _id; }
-    }
-
-    private System.Guid _id = System.Guid.Empty;
-
     private Transform _transform; //The transform of the listener (the object this script is attached to)
     private RenderTexture _target; //The texture the GPU writes to; does not exist in CPU memory
 
@@ -62,6 +55,7 @@ public class RayTracingMaster : MonoBehaviour
         public int isSoundSource;
     }
 
+    //Plays immediately upon application startup
     private void Awake()
     {
         //Test if there is hardware support for all of the features the program needs
@@ -81,16 +75,12 @@ public class RayTracingMaster : MonoBehaviour
 
     private void OnEnable()
     {
-        if (_id == System.Guid.Empty)
-	{
-            _id = System.Guid.NewGuid();
-	}
+
     }
 
-    private void OnDisable()
+    //Plays upon application quit
+    private void OnApplicationQuit()
     {
-        _id = System.Guid.Empty;
-
         _meshObjectBuffer?.Release();
         _vertexBuffer?.Release();
         _indexBuffer?.Release();
@@ -103,6 +93,7 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
+    //Plays once every frame
     private void Update()
     {
         foreach (Transform t in _transformsToWatch)
@@ -128,6 +119,7 @@ public class RayTracingMaster : MonoBehaviour
         _meshObjectsNeedRebuilding = true;
     }
 
+    //Remakes internal buffers with current scene geometry data
     private void RebuildMeshObjectBuffers()
     {
         if (!_meshObjectsNeedRebuilding)
@@ -207,6 +199,7 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
+    //Primes the compute shader
     private void SetShaderParameters()
     {
         //Pass in the source location
@@ -266,7 +259,8 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    private void Render(RenderTexture destination)
+    //Dispatches the compute shader and returns its result asynchronously
+    private void Render()
     {
         // Make sure we have a current render target
         InitRenderTexture();
@@ -277,9 +271,6 @@ public class RayTracingMaster : MonoBehaviour
         int threadGroupsY = Mathf.CeilToInt(h / 8.0f);
         RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1));
 
-        // Blit the result texture to the screen
-        //Graphics.Blit(_target, destination);
-
         //Use an asynchronous readback request to get the data out of the render texture
         if (_isBusy == false)
         {
@@ -289,7 +280,9 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    //Plays every fixed timestep independently of actual framerate
+    //The exact rate is controlled by the project settings
+    private void FixedUpdate()
     {
         //Only re-render if something has changed.
         //Causes Unity to throw a warning. Just ignore it, this is intentional.
@@ -297,10 +290,12 @@ public class RayTracingMaster : MonoBehaviour
         {
             RebuildMeshObjectBuffers();
             SetShaderParameters();
-            Render(destination);
+            Render();
         }
     }
 
+    //Plays whenever the compute shader finishes execution
+    //Will skip some frames when there are multiple updates back-to-back
     private void OnCompleteReadback(AsyncGPUReadbackRequest request)
     {
         if (request.hasError)
