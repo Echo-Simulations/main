@@ -69,18 +69,28 @@ public class AudioProcessor : MonoBehaviour
     //       RayTracingMaster.
     public bool SendTexture(float[] data, int height, int width)
     {
+        bool error = false;
         // Traverse in row-major order.
         for (int i = 0; i < height; i++)
         {
             for (int j = 0; j < width; j++)
             {
-                // Manipulate _audioData, returning false if there was an error.
-                // .. if (error) return false;
+                // Manipulate _audioData, breaking if there was an error.
+                // .. if (error_condition) { error = true; break; }
+                // (Breaking must occur in both loops on error.)
             }
         }
         // Update the audio buffer.
-        UpdateAudio();
-        return true;
+        if (error)
+        {
+            Debug.Log("[" + GetType().ToString()
+                + "] Warning: Failed to process texture. Not updating buffer.");
+        }
+        else
+        {
+            UpdateAudio();
+        }
+        return !error;
     }
 
     // Play audio over Unity's own audio system.
