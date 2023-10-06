@@ -5,9 +5,12 @@ using UnityEngine;
 [RequireComponent(typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
 {
-    private AudioSource _source;
-    private float[] _audioData;
-    private bool _hasClip = false;
+    private AudioSource _source; // The audio source for this listener.
+                                 // This necessarily must be possessed by this
+                                 // object.
+    private float[] _audioData; // The audio buffer containing sample data.
+    private bool _hasClip = false; // Whether the audio source is assigned a
+                                   // valid audio clip.
 
     private void Start()
     {
@@ -20,6 +23,7 @@ public class AudioProcessor : MonoBehaviour
             _source.loop = true;
             _hasClip = true;
         }
+        // Play audio (if valid).
         PlayAudio();
     }
 
@@ -40,6 +44,7 @@ public class AudioProcessor : MonoBehaviour
         StopAudio(false);
     }
 
+    // Update the audio buffer.
     // NOTE: This can be called while the audio is playing to dynamically
     //       update the properties of the playing sound immediately. All
     //       audio manipulation should be followed by a call to UpdateAudio().
@@ -52,10 +57,13 @@ public class AudioProcessor : MonoBehaviour
         }
         else
         {
-            Debug.Log("[" + GetType().ToString() + "] Warning: Failed to update audio data.");
+            Debug.Log("[" + GetType().ToString()
+                + "] Warning: Failed to update audio data.");
         }
     }
 
+    // Receive a texture containing audio information and modify the buffer
+    // accordingly.
     // TODO: The data array could also be two-dimensional. Change the
     //       type from float[] to float[,] as necessary to match
     //       RayTracingMaster.
@@ -70,10 +78,12 @@ public class AudioProcessor : MonoBehaviour
                 // .. if (error) return false;
             }
         }
+        // Update the audio buffer.
         UpdateAudio();
         return true;
     }
 
+    // Play audio over Unity's own audio system.
     public void PlayAudio()
     {
         if (_hasClip && !_source.isPlaying)
@@ -92,6 +102,7 @@ public class AudioProcessor : MonoBehaviour
         }
     }
 
+    // Stop any currently playing audio.
     public void StopAudio(bool pause)
     {
         if (_hasClip && _source.isPlaying)
