@@ -4,7 +4,6 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using Unity.Collections;
 
-[RequireComponent(typeof(Camera))]
 public class RayTracingMaster : MonoBehaviour
 {
     public ComputeShader RayTracingShader;
