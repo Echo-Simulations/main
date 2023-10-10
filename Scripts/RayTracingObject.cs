@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using Unity.Collections.LowLevel.Unsafe;
 
 //[RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(MeshFilter))]
@@ -15,8 +16,11 @@ public class RayTracingObject : MonoBehaviour
         // ...
     };
 
-    public int isSoundSource = 0;
+    public bool isSoundSource = false;
     public acousticBehavior acoustics;
+
+    private Mesh mesh;
+    private acousticBehavior savedAcoustics;
 
     private bool isRegistered = false; //Used to ensure only valid meshes are used
 
@@ -27,6 +31,9 @@ public class RayTracingObject : MonoBehaviour
             RayTracingMaster.RegisterObject(this);
             isRegistered = true;
         }
+
+        mesh = transform.GetComponent<MeshFilter>().mesh;
+        savedAcoustics = acoustics;
     }
 
     private void OnDisable()
@@ -35,6 +42,24 @@ public class RayTracingObject : MonoBehaviour
         {
             RayTracingMaster.UnregisterObject(this);
             isRegistered = false;
+        }
+
+        mesh = null;
+    }
+
+    private void FixedUpdate()
+    {
+        //Throw an exception if the mesh changes while the object is enabled
+        if(transform.GetComponent<MeshFilter>().mesh != mesh)
+        {
+            Debug.LogError("ERROR: Cannot change ray tracing mesh while it is enabled");
+        }
+        //Re-register when acoustic properties change
+        if(!(acoustics.Equals(savedAcoustics)) && isRegistered)
+        {
+            savedAcoustics = acoustics;
+            RayTracingMaster.UnregisterObject(this);
+            RayTracingMaster.RegisterObject(this);
         }
     }
 }
