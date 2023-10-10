@@ -25,6 +25,7 @@ public class RayTracingMaster : MonoBehaviour
     private static List<Transform> _transformsToWatch = new List<Transform>(); //An array of transforms of relevant objects
     private static bool _meshObjectsNeedRebuilding = false; //A flag for if the scene has changed
     private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
+    private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); //An array of objects that are also sound sources
 
     private static List<MeshObject> _meshObjects = new List<MeshObject>(); //An array of all mesh data in the scene in the CPU
     private static List<Vector3> _vertices = new List<Vector3>(); //An array of all vertexes in the scene in the CPU
@@ -64,17 +65,12 @@ public class RayTracingMaster : MonoBehaviour
             SystemInfo.supportsComputeShaders &&
             SystemInfo.maxComputeBufferInputsCompute >= _computeBufferCount))
         {
-            Debug.LogError("This device does not have hardware support for this package.");
+            Debug.LogError("ERROR: Hardware compatibility");
         }
 
         _transform = GetComponent<Transform>();
 
         _transformsToWatch.Add(transform);
-    }
-
-    private void OnEnable()
-    {
-
     }
 
     //Plays upon application quit
@@ -86,10 +82,6 @@ public class RayTracingMaster : MonoBehaviour
         _rayPosBuffer?.Release();
         _rayDirBuffer?.Release();
         _rayEnabledBuffer?.Release();
-        if (_buffer.IsCreated)
-        {
-            _buffer.Dispose();
-        }
     }
 
     //Plays once every frame
@@ -109,12 +101,23 @@ public class RayTracingMaster : MonoBehaviour
     {
         _rayTracingObjects.Add(obj);
         _transformsToWatch.Add(obj.transform);
+        if (obj.isSoundSource)
+        {
+            if(_soundSources.Count > 255)
+            {
+                Debug.LogError("ERROR: Too many active sound sources");
+            }
+            _soundSources.Add(obj);
+        }
         _meshObjectsNeedRebuilding = true;
     }
 
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
+        if(obj.isSoundSource){
+            _soundSources.Remove(obj);
+        }
         _meshObjectsNeedRebuilding = true;
     }
 
@@ -148,10 +151,17 @@ public class RayTracingMaster : MonoBehaviour
             var indices = mesh.GetIndices(0);
             _indices.AddRange(indices.Select(index => index + firstVertex));
 
+            // Calculate sound source identifier
+            int id = 0;
+            if (obj.isSoundSource)
+            {
+                id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject)+1;
+            }
+
             // Add the object itself
             _meshObjects.Add(new MeshObject()
             {
-                isSoundSource = obj.isSoundSource,
+                isSoundSource = id,
                 localToWorldMatrix = obj.transform.localToWorldMatrix,
                 indices_offset = firstIndex,
                 indices_count = indices.Length
@@ -284,7 +294,7 @@ public class RayTracingMaster : MonoBehaviour
     private void FixedUpdate()
     {
         //Only re-render if something has changed.
-        //Causes Unity to throw a warning. Just ignore it, this is intentional.
+        //Has a slim chance of causing unexpected behavior
         if (_meshObjectsNeedRebuilding)
         {
             RebuildMeshObjectBuffers();
