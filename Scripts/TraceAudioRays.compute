@@ -1,4 +1,4 @@
-﻿#pragma kernel CSMain
+#pragma kernel CSMain
 
 RWTexture2DArray<float> Result;
 //Depth is equal to _Diffractions * _ParameterCount
@@ -118,6 +118,9 @@ RayHit CreateRayHit()
 bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
 	inout float t, inout float u, inout float v)
 {
+	bool ret = false;
+	t = 0.0f;
+
 	// find vectors for two edges sharing vert0
 	float3 edge1 = vert1 - vert0;
 	float3 edge2 = vert2 - vert0;
@@ -129,30 +132,32 @@ bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
 	float det = dot(edge1, pvec);
 
 	// use backface culling
-	if (det < EPSILON)
-		return false;
-	float inv_det = 1.0f / det;
+	if (det >= EPSILON)
+	{
+		float inv_det = 1.0f / det;
 
-	// calculate distance from vert0 to ray origin
-	float3 tvec = ray.origin - vert0;
+		// calculate distance from vert0 to ray origin
+		float3 tvec = ray.origin - vert0;
 
-	// calculate U parameter and test bounds
-	u = dot(tvec, pvec) * inv_det;
-	if (u < 0.0 || u > 1.0f)
-		return false;
+		// calculate U parameter and test bounds
+		u = dot(tvec, pvec) * inv_det;
+		if (u >= 0.0 && u <= 1.0f)
+		{
+			// prepare to test V parameter
+			float3 qvec = cross(tvec, edge1);
 
-	// prepare to test V parameter
-	float3 qvec = cross(tvec, edge1);
+			// calculate V parameter and test bounds
+			v = dot(ray.direction, qvec) * inv_det;
+			if (v >= 0.0 && u + v <= 1.0f)
+			{
+				// calculate t, ray intersects triangle
+				t = dot(edge2, qvec) * inv_det;
+				ret = true;
+			}
+		}
+	}
 
-	// calculate V parameter and test bounds
-	v = dot(ray.direction, qvec) * inv_det;
-	if (v < 0.0 || u + v > 1.0f)
-		return false;
-
-	// calculate t, ray intersects triangle
-	t = dot(edge2, qvec) * inv_det;
-
-	return true;
+	return ret;
 }
 
 void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
