@@ -103,11 +103,14 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(obj.transform);
         if (obj.isSoundSource)
         {
-            if(_soundSources.Count > 255)
+            if(_soundSources.Count < 255)
+            {
+                _soundSources.Add(obj);
+            }
+            else
             {
                 Debug.LogError("ERROR: Too many active sound sources");
             }
-            _soundSources.Add(obj);
         }
         _meshObjectsNeedRebuilding = true;
     }
@@ -115,7 +118,8 @@ public class RayTracingMaster : MonoBehaviour
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
-        if(obj.isSoundSource){
+        if (obj.isSoundSource)
+        {
             _soundSources.Remove(obj);
         }
         _meshObjectsNeedRebuilding = true;
@@ -155,7 +159,8 @@ public class RayTracingMaster : MonoBehaviour
             int id = 0;
             if (obj.isSoundSource)
             {
-                id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject)+1;
+                id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject);
+                id = (-1 == id) ? 0 : id + 1;
             }
 
             // Add the object itself
