@@ -24,6 +24,7 @@ public class RayTracingMaster : MonoBehaviour
 
     private static List<Transform> _transformsToWatch = new List<Transform>(); //An array of transforms of relevant objects
     private static bool _meshObjectsNeedRebuilding = false; //A flag for if the scene has changed
+    private static bool _transformsNeedRebuilding = false;
     private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
     private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); //An array of objects that are also sound sources
 
@@ -94,7 +95,8 @@ public class RayTracingMaster : MonoBehaviour
             if (t.hasChanged)
             {
                 t.hasChanged = false;
-                _meshObjectsNeedRebuilding = true;
+                //_meshObjectsNeedRebuilding = true;
+                _transformsNeedRebuilding = true;
             }
         }
     }
@@ -184,6 +186,28 @@ public class RayTracingMaster : MonoBehaviour
         CreateComputeBuffer(ref _meshObjectBuffer, _meshObjects, 100);
         CreateComputeBuffer(ref _vertexBuffer, _vertices, 12);
         CreateComputeBuffer(ref _indexBuffer, _indices, 4);
+    }
+
+    private void RebuildTransformationMatrices()
+    {
+        _transformsNeedRebuilding = false;
+
+        List<MeshObject> updatedMeshObjects = new List<MeshObject>(_meshObjects);
+        for (int i = 0; i < _rayTracingObjects.Count; i++)
+        {
+            updatedMeshObjects[i] = new MeshObject()
+            {
+                isSoundSource = updatedMeshObjects[i].isSoundSource,
+                localToWorldMatrix = _rayTracingObjects[i].transform.localToWorldMatrix,
+                indices_offset = updatedMeshObjects[i].indices_offset,
+                indices_count = updatedMeshObjects[i].indices_count,
+                center = updatedMeshObjects[i].center,
+                extents = updatedMeshObjects[i].extents
+            };
+        }
+
+        _meshObjects = updatedMeshObjects;
+        CreateComputeBuffer(ref _meshObjectBuffer, _meshObjects, 100);
     }
 
     private static void CreateComputeBuffer<T>(ref ComputeBuffer buffer, List<T> data, int stride)
@@ -311,6 +335,12 @@ public class RayTracingMaster : MonoBehaviour
         if (_meshObjectsNeedRebuilding)
         {
             RebuildMeshObjectBuffers();
+            SetShaderParameters();
+            Render();
+        }
+        else if (_transformsNeedRebuilding)
+        {
+            RebuildTransformationMatrices();
             SetShaderParameters();
             Render();
         }
