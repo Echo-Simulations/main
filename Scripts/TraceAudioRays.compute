@@ -1,4 +1,5 @@
-#pragma kernel CSMain
+﻿#pragma kernel CSMain
+#pragma only_renderers vulkan
 
 RWTexture2DArray<float> Result;
 //Depth is equal to _Diffractions * _ParameterCount
@@ -32,6 +33,8 @@ struct MeshObject
 	int indices_offset;
 	int indices_count;
     int isSoundSource;
+    float3 center;
+    float3 extents;
 };
 
 StructuredBuffer<MeshObject> _MeshObjects;
@@ -118,46 +121,47 @@ RayHit CreateRayHit()
 bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
 	inout float t, inout float u, inout float v)
 {
-	bool ret = false;
-	t = 0.0f;
+    bool ret = false;
+    //Initializing t is really unnecessary, but avoids a silly warning
+    t = 0.0f;
 
-	// find vectors for two edges sharing vert0
-	float3 edge1 = vert1 - vert0;
-	float3 edge2 = vert2 - vert0;
+    // find vectors for two edges sharing vert0
+    float3 edge1 = vert1 - vert0;
+    float3 edge2 = vert2 - vert0;
 
-	// begin calculating determinant - also used to calculate U parameter
-	float3 pvec = cross(ray.direction, edge2);
+    // begin calculating determinant - also used to calculate U parameter
+    float3 pvec = cross(ray.direction, edge2);
 
-	// if determinant is near zero, ray lies in plane of triangle
-	float det = dot(edge1, pvec);
+    // if determinant is near zero, ray lies in plane of triangle
+    float det = dot(edge1, pvec);
 
-	// use backface culling
-	if (det >= EPSILON)
-	{
-		float inv_det = 1.0f / det;
+    // use backface culling
+    if (det >= EPSILON)
+    {
+        float inv_det = 1.0f / det;
 
-		// calculate distance from vert0 to ray origin
-		float3 tvec = ray.origin - vert0;
+        // calculate distance from vert0 to ray origin
+        float3 tvec = ray.origin - vert0;
 
-		// calculate U parameter and test bounds
-		u = dot(tvec, pvec) * inv_det;
-		if (u >= 0.0 && u <= 1.0f)
-		{
-			// prepare to test V parameter
-			float3 qvec = cross(tvec, edge1);
+        // calculate U parameter and test bounds
+        u = dot(tvec, pvec) * inv_det;
+        if (u >= 0.0 && u <= 1.0f)
+        {
+            // prepare to test V parameter
+            float3 qvec = cross(tvec, edge1);
 
-			// calculate V parameter and test bounds
-			v = dot(ray.direction, qvec) * inv_det;
-			if (v >= 0.0 && u + v <= 1.0f)
-			{
-				// calculate t, ray intersects triangle
-				t = dot(edge2, qvec) * inv_det;
-				ret = true;
-			}
-		}
-	}
+            // calculate V parameter and test bounds
+            v = dot(ray.direction, qvec) * inv_det;
+            if (v >= 0.0 && u + v <= 1.0f)
+            {
+                // calculate t, ray intersects triangle
+                t = dot(edge2, qvec) * inv_det;
+                ret = true;
+            }
+        }
+    }
 
-	return ret;
+    return ret;
 }
 
 void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
@@ -185,7 +189,30 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
                 bestHit.reflection = 1.0f;
 			}
 		}
+        GroupMemoryBarrierWithGroupSync();
 	}
+}
+
+bool IntersectBoundingBox(Ray ray, MeshObject meshObject)
+{
+    //Check all of the faces of the bounding box
+    for (uint i = 0; i < 36; i += 3) {
+
+        float3 v0 = _Vertices[_Indices[i]] * meshObject.extents * 2 + meshObject.center;
+        v0 = (mul(meshObject.localToWorldMatrix, float4(v0, 1))).xyz;
+        float3 v1 = _Vertices[_Indices[i + 1]] * meshObject.extents * 2 + meshObject.center;
+        v1 = (mul(meshObject.localToWorldMatrix, float4(v1, 1))).xyz;
+        float3 v2 = _Vertices[_Indices[i + 2]] * meshObject.extents * 2 + meshObject.center;
+        v2 = (mul(meshObject.localToWorldMatrix, float4(v2, 1))).xyz;
+
+        float t, u, v;
+        //Swap two vertices to flip the face's normal
+        if (IntersectTriangle_MT97(ray, v0, v2, v1, t, u, v))
+        {
+            return true;
+        }
+    }
+    return true;
 }
 
 void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint group, out bool success)
@@ -253,6 +280,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
                 }
             }
         }
+        GroupMemoryBarrierWithGroupSync();
     }
 }
 
@@ -270,7 +298,11 @@ RayHit Trace(Ray ray, uint group)
 	_MeshObjects.GetDimensions(count, stride);
 	for (i = 0; i < count; i++)
 	{
-		IntersectMeshObject(ray, bestHit, _MeshObjects[i]);
+        //Check the bounding box
+        if (IntersectBoundingBox(ray, _MeshObjects[i])) {
+            IntersectMeshObject(ray, bestHit, _MeshObjects[i]);
+        }
+        GroupMemoryBarrierWithGroupSync();
 	}
     // Check if diffraction can occur
     for (i = 0; i < count; i++) {
@@ -282,6 +314,7 @@ RayHit Trace(Ray ray, uint group)
                 CheckDiffraction(ray, diffracted_ray, bestHit, obj, group, diffracted);
             }
         }
+        GroupMemoryBarrierWithGroupSync();
     }
 
 	return bestHit;

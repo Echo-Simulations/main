@@ -11,7 +11,7 @@ public class RayTracingMaster : MonoBehaviour
     [Header("Customization")]
     //Range values are mostly tentative/arbitrary EXCEPT FOR DIFFRACTIONS. DO NOT CHANGE DIFFRACTIONS.
     [Range(0, 15)]
-    public int Bounces = 7; //The maximum number of reflections allowed
+    public int Bounces = 0; //The maximum number of reflections allowed
     [Range(0,7)]
     public int Diffractions = 0; //The maximum number of diffractions allowed
     [Range(1, 1024)]
@@ -53,6 +53,8 @@ public class RayTracingMaster : MonoBehaviour
         public int indices_offset;
         public int indices_count;
         public int isSoundSource;
+        public Vector3 center;
+        public Vector3 extents;
     }
 
     //Plays immediately upon application startup
@@ -103,7 +105,7 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(obj.transform);
         if (obj.isSoundSource)
         {
-            if(_soundSources.Count < 255)
+            if (_soundSources.Count < 255)
             {
                 _soundSources.Add(obj);
             }
@@ -118,8 +120,7 @@ public class RayTracingMaster : MonoBehaviour
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
-        if (obj.isSoundSource)
-        {
+        if (obj.isSoundSource){
             _soundSources.Remove(obj);
         }
         _meshObjectsNeedRebuilding = true;
@@ -140,6 +141,12 @@ public class RayTracingMaster : MonoBehaviour
         _vertices.Clear();
         _indices.Clear();
 
+        // Add the default cube to the list
+        Mesh cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        _vertices.AddRange(cube.vertices); // 8 vertices
+        var faces = cube.GetIndices(0);
+        _indices.AddRange(faces.Select(index => index)); // 12 polys (36 entries)
+
         // Loop over all objects and gather their data
         foreach (RayTracingObject obj in _rayTracingObjects)
         {
@@ -159,8 +166,7 @@ public class RayTracingMaster : MonoBehaviour
             int id = 0;
             if (obj.isSoundSource)
             {
-                id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject);
-                id = (-1 == id) ? 0 : id + 1;
+                id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject)+1;
             }
 
             // Add the object itself
@@ -169,11 +175,13 @@ public class RayTracingMaster : MonoBehaviour
                 isSoundSource = id,
                 localToWorldMatrix = obj.transform.localToWorldMatrix,
                 indices_offset = firstIndex,
-                indices_count = indices.Length
+                indices_count = indices.Length,
+                center = mesh.bounds.center,
+                extents = mesh.bounds.extents
             });
         }
 
-        CreateComputeBuffer(ref _meshObjectBuffer, _meshObjects, 76);
+        CreateComputeBuffer(ref _meshObjectBuffer, _meshObjects, 100);
         CreateComputeBuffer(ref _vertexBuffer, _vertices, 12);
         CreateComputeBuffer(ref _indexBuffer, _indices, 4);
     }
