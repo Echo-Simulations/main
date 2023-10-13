@@ -61,6 +61,7 @@ public class RayTracingMaster : MonoBehaviour
     //Plays immediately upon application startup
     private void Awake()
     {
+#if UNITY_EDITOR
         //Test if there is hardware support for all of the features the program needs
         if (!(SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RFloat) &&
             SystemInfo.supports2DArrayTextures &&
@@ -68,8 +69,9 @@ public class RayTracingMaster : MonoBehaviour
             SystemInfo.supportsComputeShaders &&
             SystemInfo.maxComputeBufferInputsCompute >= _computeBufferCount))
         {
-            Debug.LogError("ERROR: Hardware compatibility");
+            Debug.LogError("[" + GetType().ToString() + "] ERROR: Hardware compatibility");
         }
+#endif
 
         _transform = GetComponent<Transform>();
 
@@ -111,10 +113,12 @@ public class RayTracingMaster : MonoBehaviour
             {
                 _soundSources.Add(obj);
             }
+#if UNITY_EDITOR
             else
             {
                 Debug.LogError("ERROR: Too many active sound sources");
             }
+#endif
         }
         _meshObjectsNeedRebuilding = true;
     }

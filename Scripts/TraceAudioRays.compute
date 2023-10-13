@@ -1,4 +1,4 @@
-﻿#pragma kernel CSMain
+#pragma kernel CSMain
 #pragma only_renderers vulkan
 
 RWTexture2DArray<float> Result;
@@ -9,6 +9,7 @@ float4x4 _Source;
 float2 _PixelOffset;
 
 static const float PI = 3.14159265f;
+static const float PI_2 = PI / 2;
 static const float EPSILON = 1e-8;
 static const float PHI = PI * (3.0f - 2.23606798f);
 
@@ -244,7 +245,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
 
             //Compare normals
-            if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < PI/2)
+            if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < PI_2)
             {
                 //Check if there is an open diffraction slot
                 int index;
@@ -355,10 +356,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
 void CSMain (uint3 id : SV_DispatchThreadID)
 {
     //_Pixel = id.xy;
-    bool enabled = false;
-    if (id.z == 0) {
-        enabled = true;
-    }
+    bool enabled = id.z == 0;
 
     // Get the dimensions of the RenderTexture
     uint width, height, depth;

@@ -55,11 +55,13 @@ public class AudioProcessor : MonoBehaviour
             // Pack sample data.
             _source.clip.SetData(_audioData, 0);
         }
+#if UNITY_EDITOR
         else
         {
-            Debug.Log("[" + GetType().ToString()
+            Debug.LogWarning("[" + GetType().ToString()
                 + "] Warning: Failed to update audio data.");
         }
+#endif
     }
 
     // Receive a texture containing audio information and modify the buffer
@@ -81,15 +83,17 @@ public class AudioProcessor : MonoBehaviour
             }
         }
         // Update the audio buffer.
-        if (error)
-        {
-            Debug.Log("[" + GetType().ToString()
-                + "] Warning: Failed to process texture. Not updating buffer.");
-        }
-        else
+        if (!error)
         {
             UpdateAudio();
         }
+#if UNITY_EDITOR
+        else
+        {
+            Debug.LogWarning("[" + GetType().ToString()
+                + "] Warning: Failed to process texture. Not updating buffer.");
+        }
+#endif
         return !error;
     }
 
