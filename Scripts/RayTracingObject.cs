@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.Collections.LowLevel.Unsafe;
 
 //[RequireComponent(typeof(MeshRenderer))]
@@ -49,11 +49,13 @@ public class RayTracingObject : MonoBehaviour
 
     private void FixedUpdate()
     {
+#if UNITY_EDITOR
         //Throw an exception if the mesh changes while the object is enabled
         if(transform.GetComponent<MeshFilter>().mesh != mesh)
         {
             Debug.LogError("ERROR: Cannot change ray tracing mesh while it is enabled");
         }
+#endif
         //Re-register when acoustic properties change
         if(!(acoustics.Equals(savedAcoustics)) && isRegistered)
         {

@@ -2,7 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-[RequireComponent(typeof(AudioSource))]
+[RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
 {
     private AudioSource _source; // The audio source for this listener.
@@ -11,6 +11,7 @@ public class AudioProcessor : MonoBehaviour
     private float[] _audioData; // The audio buffer containing sample data.
     private bool _hasClip = false; // Whether the audio source is assigned a
                                    // valid audio clip.
+    private RayTracingObject _obj; // The source object.
 
     private void Start()
     {
@@ -22,6 +23,7 @@ public class AudioProcessor : MonoBehaviour
             _source.clip.GetData(_audioData, 0);
             _source.loop = true;
             _hasClip = true;
+            _obj = GetComponent<RayTracingObject>();
         }
         // Play audio (if valid).
         PlayAudio();

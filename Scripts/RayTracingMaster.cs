@@ -336,15 +336,16 @@ public class RayTracingMaster : MonoBehaviour
     {
         //Only re-render if something has changed.
         //Has a slim chance of causing unexpected behavior
-        if (_meshObjectsNeedRebuilding)
+        if (_meshObjectsNeedRebuilding || _transformsNeedRebuilding)
         {
-            RebuildMeshObjectBuffers();
-            SetShaderParameters();
-            Render();
-        }
-        else if (_transformsNeedRebuilding)
-        {
-            RebuildTransformationMatrices();
+            if (_meshObjectsNeedRebuilding)
+            {
+                RebuildMeshObjectBuffers();
+            }
+            else
+            {
+                RebuildTransformationMatrices();
+            }
             SetShaderParameters();
             Render();
         }
@@ -374,7 +375,9 @@ public class RayTracingMaster : MonoBehaviour
                     count++;
                 }
             }
+#if UNITY_EDITOR
             Debug.Log(count);
+#endif
             //Debug.Log(_buffer.Length);
         }
         _buffer.Dispose();
