@@ -1,3 +1,5 @@
+//#define SHOW_READBACK_INFO // Define this to show readback debug information
+
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -27,6 +29,7 @@ public class RayTracingMaster : MonoBehaviour
     private static bool _transformsNeedRebuilding = false;
     private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
     private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); //An array of objects that are also sound sources
+    private static List<AudioProcessor> _sourceProcessors = new List<AudioProcessor>(); //An array of audio processors on sound sources
 
     private static List<MeshObject> _meshObjects = new List<MeshObject>(); //An array of all mesh data in the scene in the CPU
     private static List<Vector3> _vertices = new List<Vector3>(); //An array of all vertexes in the scene in the CPU
@@ -112,6 +115,7 @@ public class RayTracingMaster : MonoBehaviour
             if (_soundSources.Count < 255)
             {
                 _soundSources.Add(obj);
+                _sourceProcessors.Add(obj.GetComponent<AudioProcessor>());
             }
 #if UNITY_EDITOR
             else
@@ -367,6 +371,7 @@ public class RayTracingMaster : MonoBehaviour
 
             //This is where you would make the program use the buffer data
             //Right now, make it print some basic data
+#if SHOW_READBACK_INFO && UNITY_EDITOR
             int count = 0;
             for(int i = 0; i < _buffer.Length; i++)
             {
@@ -375,10 +380,16 @@ public class RayTracingMaster : MonoBehaviour
                     count++;
                 }
             }
-#if UNITY_EDITOR
             Debug.Log(count);
-#endif
             //Debug.Log(_buffer.Length);
+#endif
+            // Send the texture to the audio processor if this object has the
+            // component.
+            if (_sourceProcessors[0] != null)
+            {
+                _sourceProcessors[0].SendTexture(_buffer.ToArray(),
+                    _buffer.Length / _parameterCount, _parameterCount);
+            }
         }
         _buffer.Dispose();
         _isBusy = false;

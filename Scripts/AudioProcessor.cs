@@ -11,6 +11,7 @@ public class AudioProcessor : MonoBehaviour
     private float[] _audioData; // The audio buffer containing sample data.
     private bool _hasClip = false; // Whether the audio source is assigned a
                                    // valid audio clip.
+    private float _volume = 1.0f;
     private RayTracingObject _obj; // The source object.
 
     private void Start()
@@ -74,15 +75,37 @@ public class AudioProcessor : MonoBehaviour
     public bool SendTexture(float[] data, int height, int width)
     {
         bool error = false;
+        float volume = -1.0f;
         // Traverse in row-major order.
         for (int i = 0; i < height; i++)
         {
+            int idx1 = i * width;
             for (int j = 0; j < width; j++)
             {
                 // Manipulate _audioData, breaking if there was an error.
                 // .. if (error_condition) { error = true; break; }
                 // (Breaking must occur in both loops on error.)
+
+                // Try to retrieve only the first distance parameter for now.
+                if (j == 1 && data[idx1+1] > 0.0f && data[idx1+1] < 1.0f)
+                {
+                    volume = 1.0f - data[idx1+1];
+                    break;
+                }
             }
+        }
+        if (volume < 0.0f || volume == _volume)
+        {
+            return !error;
+        }
+#if UNITY_EDITOR
+        Debug.Log("[" + GetType().ToString() + "] New volume is " + volume);
+#endif
+        _volume = volume * (1.0f / _volume);
+        // Update sample array accounting for volume.
+        for (int i = 0; i < _audioData.Length; i++)
+        {
+            _audioData[i] *= _volume;
         }
         // Update the audio buffer.
         if (!error)
