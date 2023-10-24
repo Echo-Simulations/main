@@ -45,7 +45,7 @@ public class RayTracingMaster : MonoBehaviour
     private NativeArray<float> _buffer; //The return value of the ray tracing, expressed as a float array
     private bool _isBusy = false; //Used to avoid timing issues
 
-    private const int _parameterCount = 1; //Represents the number of channels necessary per ray
+    private const int _parameterCount = 2; //Represents the number of channels necessary per ray
     private const int _computeBufferCount = 6; //Represents the number of compute buffers we are using
 
     struct MeshObject

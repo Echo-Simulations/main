@@ -16,7 +16,7 @@ static const float PHI = PI * (3.0f - 2.23606798f);
 //- CONTROLS
 int _Bounces;
 int _Diffractions;
-int _ParameterCount = 1;
+int _ParameterCount = 2;
 //Channels are as follows:
 // 0: Target Mesh (0 means did not hit)
 
@@ -56,6 +56,7 @@ struct Ray
     float3 direction;
     float volume;
     float delay;
+    int target;
 };
 
 Ray CreateRay(float3 origin, float3 direction)
@@ -65,6 +66,7 @@ Ray CreateRay(float3 origin, float3 direction)
     ray.direction = direction;
     ray.volume = 1.0f;
     ray.delay = 0.0f;
+    ray.target = 0;
     return ray;
 }
 
@@ -99,7 +101,7 @@ struct RayHit
     int index; //Represents the index in the index buffer where the polygon is described
 
     float reflection; //How much sound will be reflected vs absorbed
-    bool hitSoundSource;
+    int hitSoundSource;
 };
 
 RayHit CreateRayHit()
@@ -216,7 +218,7 @@ bool IntersectBoundingBox(Ray ray, MeshObject meshObject)
     return true;
 }
 
-void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint group, out bool success)
+void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint3 id, out bool success)
 {
     uint offset = meshObject.indices_offset;
     uint count = offset + meshObject.indices_count;
@@ -249,12 +251,13 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             {
                 //Check if there is an open diffraction slot
                 int index;
+                uint width, height, depth;
+                Result.GetDimensions(width, height, depth);
+                uint group = id.x + id.y * width;
                 InterlockedAdd(_RayEnabled[group], 1, index);
                 if (index <= _Diffractions) {
                     //Diffraction occurs
                     //Store the position and rotation values of the new vector
-                    uint width, height, depth;
-                    Result.GetDimensions(width, height, depth);
                     
                     //Calculate the new position (on the diffracting edge)
                     float3 new_pos = float3(0.0f, 0.0f, 0.0f);
@@ -277,6 +280,9 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
                     float3 tangent_vector = normalize(ray.direction - dot(ray.direction, normalize(cross(v1 - v0, v2 - v0))) * normalize(cross(v1 - v0, v2 - v0)));
                     _RayDir[group + index * width * height] = normalize(ray.direction + tangent_vector);
 
+                    //Store the acoustic information
+                    Result[uint3(id.x, id.y, index * _ParameterCount + 1)] = ray.volume;
+
                     success = true;
                 }
             }
@@ -288,7 +294,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
 //-------------------------------------
 //- TRACE
 
-RayHit Trace(Ray ray, uint group)
+RayHit Trace(Ray ray, uint3 id)
 {
 	RayHit bestHit = CreateRayHit();
     Ray diffracted_ray = CreateRay(float3(0.0f, 0.0f, 0.0f), float3(0.0f, 0.0f, 0.0f));
@@ -312,7 +318,7 @@ RayHit Trace(Ray ray, uint group)
         if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index) {
             //Check if there is a possible diffraction
             if (!diffracted) {
-                CheckDiffraction(ray, diffracted_ray, bestHit, obj, group, diffracted);
+                CheckDiffraction(ray, diffracted_ray, bestHit, obj, id, diffracted);
             }
         }
         GroupMemoryBarrierWithGroupSync();
@@ -332,6 +338,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
         // Specular reflection
         ray.origin = hit.position + hit.normal * 0.001f;
         ray.direction = reflect(ray.direction, hit.normal);
+
         //Distance falloff
         //Currently rather extreme
         if(hit.distance > 1.0f)
@@ -340,10 +347,13 @@ void CalculateEffects(inout Ray ray, RayHit hit)
         ray.volume *= hit.reflection;
         //Delay
         ray.delay += hit.distance / 343.0f;
+
+        ray.target = hit.hitSoundSource;
     }
     else
     {
         // Skybox, erase the ray
+        ray.target = 0;
         ray.volume = 0.0f;
         ray.delay = 0.0f;
     }
@@ -383,9 +393,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             //Apply the position and rotation values to the vector
             ray.origin = _RayPos[id.x + id.y * width + id.z * width * height];
             ray.direction = _RayDir[id.x + id.y * width + id.z * width * height];
+            ray.volume = Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)];
         }
 
-        hit = Trace(ray, id.x + id.y * width);
+        hit = Trace(ray, id.xyz);
         CalculateEffects(ray, hit);
 
         /*if (ray.volume == 0.0f && enabled)
@@ -412,6 +423,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     //Valid rays write to the end texture
     if (enabled) {
-        Result[id.xyz] = ray.volume;
+        Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
+        Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.volume;
     }
 }
