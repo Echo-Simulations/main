@@ -132,6 +132,7 @@ public class RayTracingMaster : MonoBehaviour
         _rayTracingObjects.Remove(obj);
         if (obj.isSoundSource){
             _soundSources.Remove(obj);
+            _sourceProcessors.Remove(obj.GetComponent<AudioProcessor>());
         }
         _meshObjectsNeedRebuilding = true;
     }
@@ -385,7 +386,7 @@ public class RayTracingMaster : MonoBehaviour
 #endif
             // Send the texture to the audio processor if this object has the
             // component.
-            if (_sourceProcessors[0] != null)
+            if (_sourceProcessors.Count != 0 && _sourceProcessors[0] != null)
             {
                 _sourceProcessors[0].SendTexture(_buffer.ToArray(),
                     _buffer.Length / _parameterCount, _parameterCount);
