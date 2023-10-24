@@ -19,6 +19,7 @@ int _Diffractions;
 int _ParameterCount = 2;
 //Channels are as follows:
 // 0: Target Mesh (0 means did not hit)
+// 1: Distance (measured in kilometers)
 
 //-------------------------------------
 //- RANDOMNESS
@@ -54,8 +55,9 @@ struct Ray
 {
     float3 origin;
     float3 direction;
-    float volume;
-    float delay;
+    //float volume;
+    //float delay;
+    float distance;
     int target;
 };
 
@@ -64,8 +66,9 @@ Ray CreateRay(float3 origin, float3 direction)
     Ray ray;
     ray.origin = origin;
     ray.direction = direction;
-    ray.volume = 1.0f;
-    ray.delay = 0.0f;
+    //ray.volume = 1.0f;
+    //ray.delay = 0.0f;
+    ray.distance = 0.0f;
     ray.target = 0;
     return ray;
 }
@@ -281,7 +284,7 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
                     _RayDir[group + index * width * height] = normalize(ray.direction + tangent_vector);
 
                     //Store the acoustic information
-                    Result[uint3(id.x, id.y, index * _ParameterCount + 1)] = ray.volume;
+                    Result[uint3(id.x, id.y, index * _ParameterCount + 1)] = ray.distance;
 
                     success = true;
                 }
@@ -339,14 +342,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
         ray.origin = hit.position + hit.normal * 0.001f;
         ray.direction = reflect(ray.direction, hit.normal);
 
-        //Distance falloff
-        //Currently rather extreme
-        if(hit.distance > 1.0f)
-            ray.volume *= 1 / (hit.distance * hit.distance);
-        //Absorption on impact
-        ray.volume *= hit.reflection;
-        //Delay
-        ray.delay += hit.distance / 343.0f;
+        ray.distance += hit.distance;
 
         ray.target = hit.hitSoundSource;
     }
@@ -354,8 +350,6 @@ void CalculateEffects(inout Ray ray, RayHit hit)
     {
         // Skybox, erase the ray
         ray.target = 0;
-        ray.volume = 0.0f;
-        ray.delay = 0.0f;
     }
 }
 
@@ -380,7 +374,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
 
     // Trace and shade the ray
     RayHit hit;
-    //float3 result = float3(0, 0, 0);
     for (int i = 0; i < _Bounces; i++)
     {
         GroupMemoryBarrierWithGroupSync(); //Synchronize threads to ensure proper timing
@@ -393,7 +386,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
             //Apply the position and rotation values to the vector
             ray.origin = _RayPos[id.x + id.y * width + id.z * width * height];
             ray.direction = _RayDir[id.x + id.y * width + id.z * width * height];
-            ray.volume = Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)];
+            ray.distance = Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)];
         }
 
         hit = Trace(ray, id.xyz);
@@ -404,26 +397,10 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         if (hit.hitSoundSource && enabled)
             break;
     }
-    //Kill all data on dead rays
-    if (!hit.hitSoundSource)
-    {
-        ray.volume = 0.0f;
-        ray.delay = 0.0f;
-    }
-    else if (ray.volume == 0.0f)
-    {
-        ray.delay = 0.0f;
-    }
-
-    //Cap the delay at 1.0f
-    else if (ray.delay > 1.0f) 
-    {
-        ray.delay = 1.0f;
-    }
 
     //Valid rays write to the end texture
     if (enabled) {
         Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
-        Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.volume;
+        Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 1000;
     }
 }
