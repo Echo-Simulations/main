@@ -9,6 +9,7 @@ public class AudioProcessor : MonoBehaviour
                                  // This necessarily must be possessed by this
                                  // object.
     private float[] _audioData; // The audio buffer containing sample data.
+    private float[] _modifiedAudioData;
     private bool _hasClip = false; // Whether the audio source is assigned a
                                    // valid audio clip.
     private float _volume = 1.0f;
@@ -21,11 +22,18 @@ public class AudioProcessor : MonoBehaviour
         if (_source.clip != null)
         {
             _audioData = new float[_source.clip.samples*_source.clip.channels];
+            _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
             _source.clip.GetData(_audioData, 0);
             _source.loop = true;
             _hasClip = true;
             _obj = GetComponent<RayTracingObject>();
         }
+#if UNITY_EDITOR
+        else
+        {
+            Debug.LogError("Sound sources must have audio clips.");
+        }
+#endif
         // Play audio (if valid).
         PlayAudio();
     }
@@ -56,7 +64,7 @@ public class AudioProcessor : MonoBehaviour
         if (_hasClip)
         {
             // Pack sample data.
-            _source.clip.SetData(_audioData, 0);
+            _source.clip.SetData(_modifiedAudioData, 0);
         }
 #if UNITY_EDITOR
         else
@@ -75,7 +83,7 @@ public class AudioProcessor : MonoBehaviour
     public bool SendTexture(float[] data, int height, int width)
     {
         bool error = false;
-        float volume = -1.0f;
+        float distance = -1.0f;
         // Traverse in row-major order.
         for (int i = 0; i < height; i++)
         {
@@ -89,23 +97,27 @@ public class AudioProcessor : MonoBehaviour
                 // Try to retrieve only the first distance parameter for now.
                 if (j == 1 && data[idx1+1] > 0.0f && data[idx1+1] < 1.0f)
                 {
-                    volume = 1.0f - data[idx1+1];
+                    distance = 1.0f - data[idx1+1];
                     break;
                 }
             }
         }
-        if (volume < 0.0f || volume == _volume)
+        if (distance < 0.0f || distance == _volume)
         {
             return !error;
         }
-#if UNITY_EDITOR
-        Debug.Log("[" + GetType().ToString() + "] New volume is " + volume);
-#endif
-        _volume = volume * (1.0f / _volume);
-        // Update sample array accounting for volume.
-        for (int i = 0; i < _audioData.Length; i++)
+        _volume = distance;
+        for(int i = 0; i < 100; i++)
         {
-            _audioData[i] *= _volume;
+            _volume *= distance;
+        }
+#if UNITY_EDITOR
+        Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume);
+#endif
+        // Update sample array accounting for volume.
+        for (int i = 0; i < _modifiedAudioData.Length; i++)
+        {
+            _modifiedAudioData[i] = _audioData[i] * _volume;
         }
         // Update the audio buffer.
         if (!error)
