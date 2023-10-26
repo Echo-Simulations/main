@@ -385,10 +385,16 @@ public class RayTracingMaster : MonoBehaviour
 #endif
             // Send the texture to the audio processor if this object has the
             // component.
-            if (_sourceProcessors.Count != 0 && _sourceProcessors[0] != null)
+            if (_sourceProcessors.Count != 0)
             {
-                _sourceProcessors[0].SendTexture(_buffer.ToArray(),
-                    w*h, _parameterCount, Diffractions + 1);
+                foreach (AudioProcessor processor in _sourceProcessors)
+                {
+                    if (processor != null)
+                    {
+                        processor.SendTexture(_buffer.ToArray(),
+                            w*h, _parameterCount, Diffractions + 1);
+                    }
+                }
             }
         }
         _buffer.Dispose();
