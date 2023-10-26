@@ -1,4 +1,5 @@
-//#define SHOW_READBACK_INFO // Define this to show readback debug information
+//#define DBG_SHOW_READBACK // Define this to show readback debug information
+#define DBG_ONE_PROC_SOURCE // Define this to only support one sound source
 
 using System.Collections.Generic;
 using System.Linq;
@@ -372,7 +373,7 @@ public class RayTracingMaster : MonoBehaviour
 
             //This is where you would make the program use the buffer data
             //Right now, make it print some basic data
-#if SHOW_READBACK_INFO && UNITY_EDITOR
+#if DBG_SHOW_READBACK && UNITY_EDITOR
             int count = 0;
             for(int i = 0; i < _buffer.Length / _parameterCount; i++)
             {
@@ -387,7 +388,11 @@ public class RayTracingMaster : MonoBehaviour
             // component.
             if (_sourceProcessors.Count != 0)
             {
+#if DBG_ONE_PROC_SOURCE
+                AudioProcessor processor = _sourceProcessors[0];
+#else
                 foreach (AudioProcessor processor in _sourceProcessors)
+#endif
                 {
                     if (processor != null)
                     {
