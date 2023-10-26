@@ -388,7 +388,7 @@ public class RayTracingMaster : MonoBehaviour
             if (_sourceProcessors.Count != 0 && _sourceProcessors[0] != null)
             {
                 _sourceProcessors[0].SendTexture(_buffer.ToArray(),
-                    w*h, _parameterCount, Diffractions);
+                    w*h, _parameterCount, Diffractions + 1);
             }
         }
         _buffer.Dispose();

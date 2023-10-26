@@ -221,11 +221,25 @@ bool IntersectBoundingBox(Ray ray, MeshObject meshObject)
     return true;
 }
 
+float DistanceToLine(float3 pos, float2x3 segment)
+{
+    float3 line_vector = segment[1] - segment[0];
+    float3 casting_vector = pos = segment[0];
+    //Cast the casting vector onto the line vector
+    float3 shadow_vector = dot(line_vector, casting_vector) / dot(line_vector, line_vector) * line_vector;
+    //Return the length of the shadow
+    return sqrt(pow(shadow_vector[0], 2) + pow(shadow_vector[1], 2) + pow(shadow_vector[2], 2));
+}
+
 void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshObject meshObject, uint3 id, out bool success)
 {
     uint offset = meshObject.indices_offset;
     uint count = offset + meshObject.indices_count;
     bool3 shared_vertices_flags = bool3(false, false, false);
+
+    float shortest_distance = 1.#INF;
+    float3x3 diffracting_vertices;
+
     for (uint i = offset; i < count; i += 3)
     {
         //Check for polys that share 2 vertices
@@ -252,6 +266,22 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             //Compare normals
             if (abs(acos(dot(normalize(cross(v1 - v0, v2 - v0)), normalize(ray.direction)))) < PI_2)
             {
+                //Calculate the distance to the nearest edge
+                float distance = DistanceToLine(collision.position, float2x3(v0, v1));
+                distance = min(DistanceToLine(collision.position, float2x3(v1, v2)), distance);
+                distance = min(DistanceToLine(collision.position, float2x3(v2, v0)), distance);
+
+                if (distance < shortest_distance) {
+                    shortest_distance = distance;
+                    diffracting_vertices = float3x3(v0, v1, v2);
+                }
+            }
+
+            if(shortest_distance < 1.#INF)
+            {
+                float3 v0 = diffracting_vertices[0];
+                float3 v1 = diffracting_vertices[1];
+                float3 v2 = diffracting_vertices[2];
                 //Check if there is an open diffraction slot
                 int index;
                 uint width, height, depth;
@@ -367,9 +397,6 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     uint width, height, depth;
     Result.GetDimensions(width, height, depth);
 
-    // Transform pixel to [-1,1] range
-    float2 uv = float2((id.xy + _PixelOffset) / float2(width, height) * 2.0f - 1.0f);
-
     // Fire a ray in a uniform direction from the source
     Ray ray = CreateSphereRay(id.x + id.y * width, width * height);
 
@@ -405,5 +432,5 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         ray.distance = 0.0f;
     }
     Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
-    Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 1000;
+    Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 100;
 }

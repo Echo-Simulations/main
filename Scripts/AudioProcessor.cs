@@ -85,6 +85,7 @@ public class AudioProcessor : MonoBehaviour
         bool error = false;
         float distance = 0.0f;
         int count = 0;
+        
         // Traverse in row-major order.
         for (int i = 0; i < texSize; i++)
         {
@@ -95,25 +96,27 @@ public class AudioProcessor : MonoBehaviour
             {
                 //Distance for volume
                 //Taking the average (There are probably better alternatives)
-                distance = (distance + (1.0f - data[i + texSize]));
-                count++;
+                if (data[i + texSize] > 0.0f) {
+                    distance = (distance + (1.0f - data[i + texSize]));
+                    count++;
+                }
                 //Other attributes
             }
         }
         //Translate into volume
-        if (count != 0)
+        if (count != 0 && distance / count >= 0.0f)
         {
             _volume = distance / count;
             //Scale the volume to a reasonable level (so it's not audible from 1000 m away)
             //This method introduces a lot of variability. An alternative should be found if possible
-            _volume = Mathf.Pow(_volume, 100);
+            //_volume = Mathf.Pow(_volume, 100);
         }
         else
         {
             _volume = 0.0f;
         }
 #if UNITY_EDITOR
-        //Debug.Log(distance + ", " + count);
+        Debug.Log(distance + ", " + count);
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume);
 #endif
         // Update sample array accounting for volume.
