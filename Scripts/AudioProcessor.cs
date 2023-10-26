@@ -80,38 +80,40 @@ public class AudioProcessor : MonoBehaviour
     // TODO: The data array could also be two-dimensional. Change the
     //       type from float[] to float[,] as necessary to match
     //       RayTracingMaster.
-    public bool SendTexture(float[] data, int height, int width)
+    public bool SendTexture(float[] data, int texSize, int parameterCount, int layers)
     {
         bool error = false;
-        float distance = -1.0f;
+        float distance = 0.0f;
+        int count = 0;
         // Traverse in row-major order.
-        for (int i = 0; i < height; i++)
+        for (int i = 0; i < texSize; i++)
         {
-            int idx1 = i * width;
-            for (int j = 0; j < width; j++)
-            {
-                // Manipulate _audioData, breaking if there was an error.
-                // .. if (error_condition) { error = true; break; }
-                // (Breaking must occur in both loops on error.)
+            // Manipulate _audioData, breaking if there was an error.
+            // .. if (error_condition) { error = true; break; }
 
-                // Try to retrieve only the first distance parameter for now.
-                if (j == 1 && data[idx1+1] > 0.0f && data[idx1+1] < 1.0f)
-                {
-                    distance = 1.0f - data[idx1+1];
-                    break;
-                }
+            if (data[i] > 0.5f / 256)
+            {
+                //Distance for volume
+                //Taking the average (There are probably better alternatives)
+                distance = (distance + (1.0f - data[i + texSize]));
+                count++;
+                //Other attributes
             }
         }
-        if (distance < 0.0f || distance == _volume)
+        //Translate into volume
+        if (count != 0)
         {
-            return !error;
+            _volume = distance / count;
+            //Scale the volume to a reasonable level (so it's not audible from 1000 m away)
+            //This method introduces a lot of variability. An alternative should be found if possible
+            _volume = Mathf.Pow(_volume, 100);
         }
-        _volume = distance;
-        for(int i = 0; i < 100; i++)
+        else
         {
-            _volume *= distance;
+            _volume = 0.0f;
         }
 #if UNITY_EDITOR
+        //Debug.Log(distance + ", " + count);
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume);
 #endif
         // Update sample array accounting for volume.

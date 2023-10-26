@@ -374,22 +374,21 @@ public class RayTracingMaster : MonoBehaviour
             //Right now, make it print some basic data
 #if SHOW_READBACK_INFO && UNITY_EDITOR
             int count = 0;
-            for(int i = 0; i < _buffer.Length; i++)
+            for(int i = 0; i < _buffer.Length / _parameterCount; i++)
             {
                 if(_buffer[i] > 0.0f)
                 {
                     count++;
                 }
             }
-            Debug.Log(count);
-            //Debug.Log(_buffer.Length);
+            Debug.Log(count + "/" + _buffer.Length / _parameterCount);
 #endif
             // Send the texture to the audio processor if this object has the
             // component.
             if (_sourceProcessors.Count != 0 && _sourceProcessors[0] != null)
             {
                 _sourceProcessors[0].SendTexture(_buffer.ToArray(),
-                    _buffer.Length / _parameterCount, _parameterCount);
+                    w*h, _parameterCount, Diffractions);
             }
         }
         _buffer.Dispose();

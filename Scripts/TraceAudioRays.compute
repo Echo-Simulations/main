@@ -11,7 +11,7 @@ float2 _PixelOffset;
 static const float PI = 3.14159265f;
 static const float PI_2 = PI / 2;
 static const float EPSILON = 1e-8;
-static const float PHI = PI * (3.0f - 2.23606798f);
+static const float GOLD = 3.23606798f / 2;
 
 //- CONTROLS
 int _Bounces;
@@ -74,18 +74,18 @@ Ray CreateRay(float3 origin, float3 direction)
 }
 
 //Fibonnachi Sphere Algorithm
-Ray CreateSphereRay(float2 uv, int count)
+//For some reason never goes on the -z axis???
+Ray CreateSphereRay(int i, int count)
 {
     float3 origin = mul(_Source, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
 
-    //x or y?
-    float radius = sqrt(1.0f-(uv*uv).y);
-    float3 direction;
-    float theta = PHI * count;
+    float theta = 2 * PI * i / GOLD;
+    float phi = acos(1 - 2 * (i + 0.5) / count);
 
-    direction.x = cos(theta) * radius;
-    direction.y = uv.y;
-    direction.z = sin(theta) * radius;
+    float3 direction;
+    direction.x = cos(theta) * sin(phi);
+    direction.y = sin(theta) * sin(phi);
+    direction.z = cos(phi);
 
     direction = normalize(direction);
 
@@ -350,6 +350,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
     {
         // Skybox, erase the ray
         ray.target = 0;
+        ray.distance = 0.0f;
     }
 }
 
@@ -370,7 +371,7 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     float2 uv = float2((id.xy + _PixelOffset) / float2(width, height) * 2.0f - 1.0f);
 
     // Fire a ray in a uniform direction from the source
-    Ray ray = CreateSphereRay(uv, (id.x * 8) + id.y);
+    Ray ray = CreateSphereRay(id.x + id.y * width, width * height);
 
     // Trace and shade the ray
     RayHit hit;
@@ -392,15 +393,17 @@ void CSMain (uint3 id : SV_DispatchThreadID)
         hit = Trace(ray, id.xyz);
         CalculateEffects(ray, hit);
 
-        /*if (ray.volume == 0.0f && enabled)
+        /*if (ray.distance == 0.0f && enabled)
             break;*/
         if (hit.hitSoundSource && enabled)
             break;
     }
 
     //Valid rays write to the end texture
-    if (enabled) {
-        Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
-        Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 1000;
+    if (!enabled) {
+        ray.target = 0;
+        ray.distance = 0.0f;
     }
+    Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
+    Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 1000;
 }
