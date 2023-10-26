@@ -9,18 +9,20 @@ public class AudioProcessor : MonoBehaviour
                                  // This necessarily must be possessed by this
                                  // object.
     private float[] _audioData; // The audio buffer containing sample data.
-    private float[] _modifiedAudioData;
+    private float[] _modifiedAudioData; // Secondary buffer from which the
+                                        // original sample data is modified.
     private bool _hasClip = false; // Whether the audio source is assigned a
                                    // valid audio clip.
-    private float _volume = 1.0f;
+    private float _volume = 1.0f; // The current volume of the audio clip.
     private RayTracingObject _obj; // The source object.
 
     private void Start()
     {
-        // Unpack sample data.
         _source = GetComponent<AudioSource>();
+        // Enforce presence of sound clip.
         if (_source.clip != null)
         {
+            // Prepare sample buffers and retrieve data.
             _audioData = new float[_source.clip.samples*_source.clip.channels];
             _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
             _source.clip.GetData(_audioData, 0);
@@ -77,9 +79,9 @@ public class AudioProcessor : MonoBehaviour
 
     // Receive a texture containing audio information and modify the buffer
     // accordingly.
-    // TODO: The data array could also be two-dimensional. Change the
-    //       type from float[] to float[,] as necessary to match
-    //       RayTracingMaster.
+    // NOTE: This is the where the manipulation of the audio itself is
+    //       implemented and is the primary outward-facing interface for
+    //       communication with the master script.
     public bool SendTexture(float[] data, int texSize, int parameterCount, int layers)
     {
         bool error = false;
@@ -96,7 +98,8 @@ public class AudioProcessor : MonoBehaviour
             {
                 //Distance for volume
                 //Taking the average (There are probably better alternatives)
-                if (data[i + texSize] > 0.0f) {
+                if (data[i + texSize] > 0.0f)
+                {
                     distance = (distance + (1.0f - data[i + texSize]));
                     distanceCount++;
                 }
@@ -120,6 +123,7 @@ public class AudioProcessor : MonoBehaviour
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
+        // Update the sample array if characteristics have changed.
         if (prevVolume != _volume)
         {
             // Update sample array accounting for volume.
