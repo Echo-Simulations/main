@@ -84,7 +84,7 @@ public class AudioProcessor : MonoBehaviour
     {
         bool error = false;
         float distance = 0.0f;
-        int count = 0;
+        int distanceCount = 0;
         
         // Traverse in row-major order.
         for (int i = 0; i < texSize; i++)
@@ -98,15 +98,16 @@ public class AudioProcessor : MonoBehaviour
                 //Taking the average (There are probably better alternatives)
                 if (data[i + texSize] > 0.0f) {
                     distance = (distance + (1.0f - data[i + texSize]));
-                    count++;
+                    distanceCount++;
                 }
                 //Other attributes
             }
         }
         //Translate into volume
-        if (count != 0 && distance / count >= 0.0f)
+        float prevVolume = _volume;
+        if (distanceCount != 0 && distance / distanceCount >= 0.0f)
         {
-            _volume = distance / count;
+            _volume = distance / distanceCount;
             //Scale the volume to a reasonable level (so it's not audible from 1000 m away)
             //This method introduces a lot of variability. An alternative should be found if possible
             //_volume = Mathf.Pow(_volume, 100);
@@ -116,13 +117,16 @@ public class AudioProcessor : MonoBehaviour
             _volume = 0.0f;
         }
 #if UNITY_EDITOR
-        Debug.Log(distance + ", " + count);
-        Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume);
+        Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
+            + "\n(" + distance + ", " + distanceCount + ")");
 #endif
-        // Update sample array accounting for volume.
-        for (int i = 0; i < _modifiedAudioData.Length; i++)
+        if (prevVolume != _volume)
         {
-            _modifiedAudioData[i] = _audioData[i] * _volume;
+            // Update sample array accounting for volume.
+            for (int i = 0; i < _modifiedAudioData.Length; i++)
+            {
+                _modifiedAudioData[i] = _audioData[i] * _volume;
+            }
         }
         // Update the audio buffer.
         if (!error)
