@@ -322,8 +322,8 @@ public class RayTracingMaster : MonoBehaviour
 
         // Set the target and dispatch the compute shader
         RayTracingShader.SetTexture(0, "Result", _target);
-        int threadGroupsX = Mathf.CeilToInt(w / 8.0f);
-        int threadGroupsY = Mathf.CeilToInt(h / 8.0f);
+        int threadGroupsX = Mathf.CeilToInt(w / 4.0f);
+        int threadGroupsY = Mathf.CeilToInt(h / 4.0f);
         RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1));
 
         //Use an asynchronous readback request to get the data out of the render texture
