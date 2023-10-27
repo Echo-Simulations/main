@@ -1,5 +1,5 @@
 //#define DBG_SHOW_READBACK // Define this to show readback debug information
-#define DBG_ONE_PROC_SOURCE // Define this to only support one sound source
+//#define DBG_ONE_PROC_SOURCE // Define this to only support one sound source
 
 using System.Collections.Generic;
 using System.Linq;
@@ -309,7 +309,7 @@ public class RayTracingMaster : MonoBehaviour
             _target = new RenderTexture(w, h, 0,
                 RenderTextureFormat.RFloat, RenderTextureReadWrite.Linear);
             _target.dimension = TextureDimension.Tex2DArray;
-            _target.volumeDepth = (Diffractions+1) * _parameterCount;
+            _target.volumeDepth = (Diffractions + 1) * _parameterCount;
             _target.enableRandomWrite = true;
             _target.Create();
         }
@@ -325,7 +325,7 @@ public class RayTracingMaster : MonoBehaviour
         RayTracingShader.SetTexture(0, "Result", _target);
         int threadGroupsX = Mathf.CeilToInt(w / 4.0f);
         int threadGroupsY = Mathf.CeilToInt(h / 4.0f);
-        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, (Diffractions+1));
+        RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, Diffractions + 1);
 
         //Use an asynchronous readback request to get the data out of the render texture
         if (_isBusy == false)
@@ -375,14 +375,14 @@ public class RayTracingMaster : MonoBehaviour
             //Right now, make it print some basic data
 #if DBG_SHOW_READBACK && UNITY_EDITOR
             int count = 0;
-            for(int i = 0; i < _buffer.Length / _parameterCount; i++)
+            for(int i = 0; i < _buffer.Length; i++)
             {
                 if(_buffer[i] > 0.0f)
                 {
                     count++;
                 }
             }
-            Debug.Log(count + "/" + _buffer.Length / _parameterCount);
+            Debug.Log(count + "/" + _buffer.Length);
 #endif
             // Send the texture to the audio processor if this object has the
             // component.

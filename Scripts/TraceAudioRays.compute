@@ -16,7 +16,7 @@ static const float GOLD = 3.23606798f / 2;
 //- CONTROLS
 int _Bounces;
 int _Diffractions;
-int _ParameterCount = 2;
+static const int _ParameterCount = 2;
 //Channels are as follows:
 // 0: Target Mesh (0 means did not hit)
 // 1: Distance (measured in kilometers)
@@ -388,7 +388,7 @@ void CalculateEffects(inout Ray ray, RayHit hit)
 //- KERNEL
 
 [numthreads(4,4,8)]
-void CSMain (uint3 id : SV_DispatchThreadID)
+void CSMain(uint3 id : SV_DispatchThreadID)
 {
     //_Pixel = id.xy;
     bool enabled = id.z == 0;
@@ -406,8 +406,8 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     {
         GroupMemoryBarrierWithGroupSync(); //Synchronize threads to ensure proper timing
 
-        if (!(_RayDir[id.x + id.y * width + id.z * width * height].x == 0.0f && 
-            _RayDir[id.x + id.y * width + id.z * width * height].y == 0.0f && 
+        if (!(_RayDir[id.x + id.y * width + id.z * width * height].x == 0.0f &&
+            _RayDir[id.x + id.y * width + id.z * width * height].y == 0.0f &&
             _RayDir[id.x + id.y * width + id.z * width * height].z == 0.0f))
         {
             enabled = true;
@@ -427,10 +427,11 @@ void CSMain (uint3 id : SV_DispatchThreadID)
     }
 
     //Valid rays write to the end texture
-    if (!enabled) {
+    if (!enabled || ray.target == 0)
+    {
         ray.target = 0;
         ray.distance = 0.0f;
     }
-    Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = ray.target / 256.0f;
-    Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = ray.distance / 100;
+    Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = float(ray.target / 256.0f);
+    Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = float(ray.distance / 100.0f);
 }
