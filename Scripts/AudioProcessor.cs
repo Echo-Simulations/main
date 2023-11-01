@@ -5,6 +5,8 @@ using UnityEngine;
 [RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
 {
+    public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
+
     private AudioSource _source; // The audio source for this listener.
                                  // This necessarily must be possessed by this
                                  // object.
@@ -14,13 +16,12 @@ public class AudioProcessor : MonoBehaviour
     private bool _hasClip = false; // Whether the audio source is assigned a
                                    // valid audio clip.
     private float _volume = 1.0f; // The current volume of the audio clip.
-    private RayTracingObject _obj; // The source object.
 
     private void Start()
     {
         _source = GetComponent<AudioSource>();
         // Enforce presence of sound clip.
-        if (_source.clip != null)
+        if (_source.clip != null && _source.clip.frequency <= MAX_FREQ)
         {
             // Prepare sample buffers and retrieve data.
             _audioData = new float[_source.clip.samples*_source.clip.channels];
@@ -28,12 +29,12 @@ public class AudioProcessor : MonoBehaviour
             _source.clip.GetData(_audioData, 0);
             _source.loop = true;
             _hasClip = true;
-            _obj = GetComponent<RayTracingObject>();
         }
 #if UNITY_EDITOR
         else
         {
-            Debug.LogError("Sound sources must have audio clips.");
+            Debug.LogError("Sound sources must have valid audio clips with"
+                + " properties acceptable to the processor.");
         }
 #endif
         // Play audio (if valid).
@@ -127,7 +128,7 @@ public class AudioProcessor : MonoBehaviour
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
-        // Update the sample array if characteristics have changed.
+        // Update the sample array iff characteristics have changed.
         if (prevVolume != _volume)
         {
             // Update sample array accounting for volume.
@@ -135,19 +136,20 @@ public class AudioProcessor : MonoBehaviour
             {
                 _modifiedAudioData[i] = _audioData[i] * _volume;
             }
-        }
-        // Update the audio buffer.
-        if (!error)
-        {
-            UpdateAudio();
-        }
+            // Update the audio buffer.
+            if (!error)
+            {
+                UpdateAudio();
+            }
 #if UNITY_EDITOR
-        else
-        {
-            Debug.LogWarning("[" + GetType().ToString()
-                + "] Warning: Failed to process texture. Not updating buffer.");
-        }
+            else
+            {
+                Debug.LogWarning("[" + GetType().ToString()
+                    + "] Warning: Failed to process texture. Not updating"
+                    + " buffer.");
+            }
 #endif
+        }
         return !error;
     }
 
