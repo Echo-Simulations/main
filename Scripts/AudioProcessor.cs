@@ -87,23 +87,27 @@ public class AudioProcessor : MonoBehaviour
         bool error = false;
         float distance = 0.0f;
         int distanceCount = 0;
-        
+
         // Traverse in row-major order.
         for (int i = 0; i < texSize; i++)
         {
-            // Manipulate _audioData, breaking if there was an error.
-            // .. if (error_condition) { error = true; break; }
-
-            if (data[i] > 0.5f / 256)
+            for (int j = 0; j < layers; j++)
             {
-                //Distance for volume
-                //Taking the average (There are probably better alternatives)
-                if (data[i + texSize] > 0.0f)
+                int index = i + j * parameterCount * texSize;
+                // Manipulate _audioData, breaking if there was an error.
+                // .. if (error_condition) { error = true; break; }
+
+                if (data[index] > 0.5f / 256)
                 {
-                    distance = (distance + (1.0f - data[i + texSize]));
-                    distanceCount++;
+                    //Distance for volume
+                    //Taking the average (There are probably better alternatives)
+                    if (data[index + texSize] > 0.0f)
+                    {
+                        distance = (distance + (1.0f - data[index + texSize]));
+                        distanceCount++;
+                    }
+                    //Other attributes
                 }
-                //Other attributes
             }
         }
         //Translate into volume
