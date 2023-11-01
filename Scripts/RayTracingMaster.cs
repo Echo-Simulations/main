@@ -113,15 +113,16 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(obj.transform);
         if (obj.isSoundSource)
         {
-            if (_soundSources.Count < 255)
+            AudioProcessor processor = obj.GetComponent<AudioProcessor>();
+            if (_soundSources.Count < 255 || processor == null)
             {
                 _soundSources.Add(obj);
-                _sourceProcessors.Add(obj.GetComponent<AudioProcessor>());
+                _sourceProcessors.Add(processor);
             }
 #if UNITY_EDITOR
             else
             {
-                Debug.LogError("ERROR: Too many active sound sources");
+                Debug.LogError("ERROR: Too many active sound sources or missing audio processor");
             }
 #endif
         }
@@ -131,7 +132,8 @@ public class RayTracingMaster : MonoBehaviour
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
-        if (obj.isSoundSource){
+        if (obj.isSoundSource)
+        {
             _soundSources.Remove(obj);
             _sourceProcessors.Remove(obj.GetComponent<AudioProcessor>());
         }
@@ -394,11 +396,8 @@ public class RayTracingMaster : MonoBehaviour
                 foreach (AudioProcessor processor in _sourceProcessors)
 #endif
                 {
-                    if (processor != null)
-                    {
-                        processor.SendTexture(_buffer.ToArray(),
-                            w*h, _parameterCount, Diffractions + 1);
-                    }
+                    processor.SendTexture(_buffer.ToArray(), w*h,
+                        _parameterCount, Diffractions + 1);
                 }
             }
         }
