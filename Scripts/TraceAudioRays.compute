@@ -1,5 +1,7 @@
 #pragma kernel CSMain
 #pragma only_renderers vulkan
+//#pragma only_renderers d3d11
+#pragma enable_d3d11_debug_symbols
 
 RWTexture2DArray<float> Result;
 //Depth is equal to _Diffractions * _ParameterCount
@@ -17,7 +19,7 @@ int _Diffractions;
 static const int _ParameterCount = 2;
 //Channels are as follows:
 // 0: Target Mesh (0 means did not hit)
-// 1: Distance (measured in kilometers)
+// 1: Distance (measured in hectometers)
 
 //-------------------------------------
 //- MESHES
@@ -241,15 +243,15 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
     {
         //Check for polys that share 2 vertices
         int shared_vertices = 0;
-        if (_Indices[collision.index] == _Indices[i] || _Indices[collision.index] == _Indices[i + 1] || _Indices[collision.index] == _Indices[i + 2]) {
+        if (all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 2]])) {
             shared_vertices++;
             shared_vertices_flags.x = true;
         }
-        if (_Indices[collision.index + 1] == _Indices[i] || _Indices[collision.index + 1] == _Indices[i + 1] || _Indices[collision.index + 1] == _Indices[i + 2]) {
+        if (all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 2]])) {
             shared_vertices++;
             shared_vertices_flags.y = true;
         }
-        if (_Indices[collision.index + 2] == _Indices[i] || _Indices[collision.index + 2] == _Indices[i + 1] || _Indices[collision.index + 2] == _Indices[i + 2]) {
+        if (all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 2]])) {
             shared_vertices++;
             shared_vertices_flags.z = true;
         }
@@ -260,20 +262,11 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
             float3 v1 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1))).xyz;
             float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
 
-            float3 surface_normal = normalize(cross(v2 - v0, v1 - v0));
+            float3 surface_normal = normalize(cross(v1 - v0, v2 - v0));
 
             //Compare normals
             if (dot(surface_normal, ray.direction) > 0) //Why does it only work for < 0? It always evaluates negative?
             {
-                //Testing
-                //int index = 1;
-                //uint width, height, depth;
-                //Result.GetDimensions(width, height, depth);
-                //uint group = id.x + id.y * width;
-                //_RayDir[group + (index) * width * height] = float3(1.0f, 1.0f, 1.0f);
-                //success = true;
-                //return;
-
                 //Calculate the distance to the nearest edge
                 float distance = DistanceToLine(collision.position, float2x3(v0, v1));
                 distance = min(DistanceToLine(collision.position, float2x3(v1, v2)), distance);
@@ -427,11 +420,6 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             ray.origin = _RayPos[id.x + id.y * width + id.z * width * height];
             ray.direction = _RayDir[id.x + id.y * width + id.z * width * height];
             ray.distance = Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)];
-
-            //Testing
-            //ray.target = 1;
-            //ray.distance = 0.5f;
-            //break;
         }
 
         hit = Trace(ray, id.xyz);
@@ -451,8 +439,4 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     }
     Result[uint3(id.x, id.y, id.z * _ParameterCount + 0)] = float(ray.target / 256.0f);
     Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)] = float(ray.distance / 100.0f);
-
-    //Testing
-    //Result[uint3(id.x, id.y, 0)] = 0.0f;
-    //Result[uint3(id.x, id.y, 1)] = 0.0f;
 }
