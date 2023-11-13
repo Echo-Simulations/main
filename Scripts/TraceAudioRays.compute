@@ -291,29 +291,43 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
                 InterlockedAdd(_RayEnabled[group], 1, index);
                 if (index < _Diffractions) {
                     //Diffraction occurs
-                    //Calculate the position of the new vector
+                    //Calculate the position and rotation of the new vector
                     float3 vecA, vecB, vecC;
+                    float3 tangent_vector;
                     if (shared_vertices_flags.x && shared_vertices_flags.y) {
                         vecA = collision.position - v0;
                         vecB = v1 - v0;
                         vecC = Project(vecA, vecB) + v0;
+                        //Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2)) {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
                     else if (shared_vertices_flags.x) {
                         vecA = collision.position - v0;
                         vecB = v2 - v0;
                         vecC = Project(vecA, vecB) + v0;
+                        //Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2)) {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
                     else {
                         vecA = collision.position - v1;
                         vecB = v2 - v1;
                         vecC = Project(vecA, vecB) + v1;
+                        //Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2)) {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
 
                     //Apply the changes to the buffers
                     _RayPos[group + (index + 1) * width * height] = vecC;
-                    //Calculate the rotation
-                    //Find the tangent vector by projecting onto the plane and normalizing
-                    float3 tangent_vector = normalize(ray.direction - Project(ray.direction, surface_normal));
+                    //Ensure that it faces the correct direction
                     _RayDir[group + (index + 1) * width * height] = normalize(ray.direction + tangent_vector); //Tangent vector pointed along the normal?
 
                     //Store the acoustic information
