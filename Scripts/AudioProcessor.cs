@@ -7,6 +7,7 @@ public class AudioProcessor : MonoBehaviour
 {
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
 
+    private int _soundSourceId = 0;
     private AudioSource _source; // The audio source for this listener.
                                  // This necessarily must be possessed by this
                                  // object.
@@ -98,7 +99,8 @@ public class AudioProcessor : MonoBehaviour
                 // Manipulate _audioData, breaking if there was an error.
                 // .. if (error_condition) { error = true; break; }
 
-                if (data[index] > 0.5f / 256)
+                if (data[index] > (_soundSourceId - 0.5f) / 256 &&
+                    data[index] < (_soundSourceId + 0.5f) / 256)
                 {
                     //Distance for volume
                     //Taking the average (There are probably better alternatives)
@@ -187,5 +189,10 @@ public class AudioProcessor : MonoBehaviour
                 _source.Stop();
             }
         }
+    }
+
+    private void Update()
+    {
+        _soundSourceId = gameObject.GetComponent<RayTracingObject>().getId();
     }
 }

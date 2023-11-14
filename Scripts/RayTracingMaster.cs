@@ -136,6 +136,7 @@ public class RayTracingMaster : MonoBehaviour
         {
             _soundSources.Remove(obj);
             _sourceProcessors.Remove(obj.GetComponent<AudioProcessor>());
+            obj.setId(0);
         }
         _meshObjectsNeedRebuilding = true;
     }
@@ -181,6 +182,7 @@ public class RayTracingMaster : MonoBehaviour
             if (obj.isSoundSource)
             {
                 id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject)+1;
+                obj.setId(id);
             }
 
             // Add the object itself

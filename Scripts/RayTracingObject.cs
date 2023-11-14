@@ -17,6 +17,7 @@ public class RayTracingObject : MonoBehaviour
     };
 
     public bool isSoundSource = false;
+    private int soundSourceId = 0;
     public acousticBehavior acoustics;
 
     private Mesh mesh;
@@ -63,5 +64,15 @@ public class RayTracingObject : MonoBehaviour
             RayTracingMaster.UnregisterObject(this);
             RayTracingMaster.RegisterObject(this);
         }
+    }
+
+    public int getId()
+    {
+        return soundSourceId;
+    }
+
+    public void setId(int id)
+    {
+        soundSourceId = id;
     }
 }
