@@ -8,10 +8,10 @@ public class AudioProcessor : MonoBehaviour
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
     public const int MAX_LEN = 60*60; // Maximum acceptible length in seconds.
 
-    private int _soundSourceId = 0;
     private AudioSource _source; // The audio source for this listener.
                                  // This necessarily must be possessed by this
                                  // object.
+    private RayTracingObject _obj; // This ray tracing object.
     private float[] _audioData; // The audio buffer containing sample data.
     private float[] _modifiedAudioData; // Secondary buffer from which the
                                         // original sample data is modified.
@@ -22,6 +22,7 @@ public class AudioProcessor : MonoBehaviour
     private void Start()
     {
         _source = GetComponent<AudioSource>();
+        _obj = GetComponent<RayTracingObject>();
         // Enforce presence of sound clip.
         if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
             && _source.clip.length <= MAX_LEN)
@@ -91,6 +92,7 @@ public class AudioProcessor : MonoBehaviour
         bool error = false;
         float distance = 0.0f;
         int distanceCount = 0;
+        int id = _obj.Id;
 
         // Traverse in row-major order.
         for (int i = 0; i < texSize; i++)
@@ -101,8 +103,8 @@ public class AudioProcessor : MonoBehaviour
                 // Manipulate _audioData, breaking if there was an error.
                 // .. if (error_condition) { error = true; break; }
 
-                if (data[index] > (_soundSourceId - 0.5f) / 256 &&
-                    data[index] < (_soundSourceId + 0.5f) / 256)
+                if (data[index] > (id - 0.5f) / 256 &&
+                    data[index] < (id + 0.5f) / 256)
                 {
                     //Distance for volume
                     //Taking the average (There are probably better alternatives)
@@ -191,10 +193,5 @@ public class AudioProcessor : MonoBehaviour
                 _source.Stop();
             }
         }
-    }
-
-    private void Update()
-    {
-        _soundSourceId = gameObject.GetComponent<RayTracingObject>().Id;
     }
 }
