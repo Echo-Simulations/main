@@ -66,13 +66,9 @@ public class RayTracingObject : MonoBehaviour
         }
     }
 
-    public int getId()
+    public int Id
     {
-        return soundSourceId;
-    }
-
-    public void setId(int id)
-    {
-        soundSourceId = id;
+        get { return soundSourceId; }
+        set { soundSourceId = value; }
     }
 }

@@ -6,6 +6,7 @@ using UnityEngine;
 public class AudioProcessor : MonoBehaviour
 {
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
+    public const int MAX_LEN = 60*60; // Maximum acceptible length in seconds.
 
     private int _soundSourceId = 0;
     private AudioSource _source; // The audio source for this listener.
@@ -22,7 +23,8 @@ public class AudioProcessor : MonoBehaviour
     {
         _source = GetComponent<AudioSource>();
         // Enforce presence of sound clip.
-        if (_source.clip != null && _source.clip.frequency <= MAX_FREQ)
+        if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
+            && _source.clip.length <= MAX_LEN)
         {
             // Prepare sample buffers and retrieve data.
             _audioData = new float[_source.clip.samples*_source.clip.channels];
@@ -131,7 +133,7 @@ public class AudioProcessor : MonoBehaviour
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
         // Update the sample array iff characteristics have changed.
-        if (prevVolume != _volume)
+        if (_modifiedAudioData != null && prevVolume != _volume)
         {
             // Update sample array accounting for volume.
             for (int i = 0; i < _modifiedAudioData.Length; i++)
@@ -193,6 +195,6 @@ public class AudioProcessor : MonoBehaviour
 
     private void Update()
     {
-        _soundSourceId = gameObject.GetComponent<RayTracingObject>().getId();
+        _soundSourceId = gameObject.GetComponent<RayTracingObject>().Id;
     }
 }
