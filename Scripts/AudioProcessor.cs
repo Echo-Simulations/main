@@ -48,18 +48,20 @@ public class AudioProcessor : MonoBehaviour
     private void OnDestroy()
     {
         StopAudio(false);
+        _source.clip.SetData(_audioData, 0);
     }
 
     private void OnEnable()
     {
         // Start playing audio on object enable.
-        PlayAudio();
+        //PlayAudio();
     }
 
     private void OnDisable()
     {
         // Stop all audio on object disable.
         StopAudio(false);
+        _source.clip.SetData(_audioData, 0);
     }
 
     // Update the audio buffer.
@@ -118,7 +120,6 @@ public class AudioProcessor : MonoBehaviour
             }
         }
         //Translate into volume
-        float prevVolume = _volume;
         if (distanceCount != 0 && distance / distanceCount >= 0.0f)
         {
             _volume = distance / distanceCount;
@@ -135,7 +136,7 @@ public class AudioProcessor : MonoBehaviour
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
         // Update the sample array iff characteristics have changed.
-        if (_modifiedAudioData != null && prevVolume != _volume)
+        if (_modifiedAudioData != null)
         {
             // Update sample array accounting for volume.
             for (int i = 0; i < _modifiedAudioData.Length; i++)

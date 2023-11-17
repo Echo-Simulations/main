@@ -82,6 +82,16 @@ public class RayTracingMaster : MonoBehaviour
         _transformsToWatch.Add(transform);
     }
 
+    private void OnDestroy()
+    {
+        _meshObjectBuffer?.Release();
+        _vertexBuffer?.Release();
+        _indexBuffer?.Release();
+        _rayPosBuffer?.Release();
+        _rayDirBuffer?.Release();
+        _rayEnabledBuffer?.Release();
+    }
+
     //Plays upon application quit
     private void OnApplicationQuit()
     {
@@ -98,7 +108,7 @@ public class RayTracingMaster : MonoBehaviour
     {
         foreach (Transform t in _transformsToWatch)
         {
-            if (t.hasChanged)
+            if (t != null && t.hasChanged)
             {
                 t.hasChanged = false;
                 //_meshObjectsNeedRebuilding = true;

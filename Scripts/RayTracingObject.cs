@@ -48,6 +48,17 @@ public class RayTracingObject : MonoBehaviour
         mesh = null;
     }
 
+    private void OnDestroy()
+    {
+        if (isRegistered)
+        {
+            RayTracingMaster.UnregisterObject(this);
+            isRegistered = false;
+        }
+
+        mesh = null;
+    }
+
     private void FixedUpdate()
     {
 #if UNITY_EDITOR
