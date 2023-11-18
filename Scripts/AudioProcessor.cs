@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEditor;
 
 [RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
@@ -31,6 +32,12 @@ public class AudioProcessor : MonoBehaviour
             _audioData = new float[_source.clip.samples*_source.clip.channels];
             _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
             _source.clip.GetData(_audioData, 0);
+
+            //Create distinct clip
+            AudioClip destructible_clip = AudioClip.Create(_source.clip.name, _source.clip.samples, _source.clip.channels, _source.clip.frequency, false);
+            destructible_clip.SetData(_audioData, 0);
+            _source.clip = destructible_clip;
+
             _source.loop = true;
             _hasClip = true;
         }
