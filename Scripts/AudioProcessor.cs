@@ -16,8 +16,6 @@ public class AudioProcessor : MonoBehaviour
     private float[] _audioData; // The audio buffer containing sample data.
     private float[] _modifiedAudioData; // Secondary buffer from which the
                                         // original sample data is modified.
-    private bool _hasClip = false; // Whether the audio source is assigned a
-                                   // valid audio clip.
     private float _volume = 1.0f; // The current volume of the audio clip.
 
     private void Start()
@@ -33,13 +31,15 @@ public class AudioProcessor : MonoBehaviour
             _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
             _source.clip.GetData(_audioData, 0);
 
-            //Create distinct clip
-            AudioClip destructible_clip = AudioClip.Create(_source.clip.name, _source.clip.samples, _source.clip.channels, _source.clip.frequency, false);
+            // Create distinct clip.
+            AudioClip destructible_clip = AudioClip.Create(_source.clip.name,
+                _source.clip.samples, _source.clip.channels,
+                _source.clip.frequency, false);
             destructible_clip.SetData(_audioData, 0);
             _source.clip = destructible_clip;
 
+            // Loop audio source.
             _source.loop = true;
-            _hasClip = true;
         }
 #if UNITY_EDITOR
         else
@@ -61,7 +61,8 @@ public class AudioProcessor : MonoBehaviour
     private void OnEnable()
     {
         // Start playing audio on object enable.
-        //PlayAudio();
+        _source.clip.SetData(_audioData, 0);
+        PlayAudio();
     }
 
     private void OnDisable()
@@ -77,7 +78,7 @@ public class AudioProcessor : MonoBehaviour
     //       audio manipulation should be followed by a call to UpdateAudio().
     private void UpdateAudio()
     {
-        if (_hasClip)
+        if (_source.clip != null)
         {
             // Pack sample data.
             _source.clip.SetData(_modifiedAudioData, 0);
@@ -170,7 +171,7 @@ public class AudioProcessor : MonoBehaviour
     // Play audio over Unity's own audio system.
     public void PlayAudio()
     {
-        if (_hasClip && !_source.isPlaying)
+        if (_source.clip != null && !_source.isPlaying)
         {
             // Ensure audio is up-to-date before playing.
             UpdateAudio();
@@ -189,7 +190,7 @@ public class AudioProcessor : MonoBehaviour
     // Stop any currently playing audio.
     public void StopAudio(bool pause)
     {
-        if (_hasClip && _source.isPlaying)
+        if (_source.clip != null && _source.isPlaying)
         {
             // Either pause or stop the source.
             if (pause)
