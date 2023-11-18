@@ -20,6 +20,10 @@ public class AudioProcessor : MonoBehaviour
 
     private void Start()
     {
+        // NOTE: Source must include a sound clip component to be considered
+        //       valid. It is recommended to use a unique clip for each audio
+        //       source, though multiple sources referencing the same audio
+        //       clip is supported.
         _source = GetComponent<AudioSource>();
         _obj = GetComponent<RayTracingObject>();
         // Enforce presence of sound clip.
@@ -54,15 +58,20 @@ public class AudioProcessor : MonoBehaviour
 
     private void OnDestroy()
     {
+        // Stop all audio on object destroy.
         StopAudio(false);
         _source.clip.SetData(_audioData, 0);
     }
 
     private void OnEnable()
     {
-        // Start playing audio on object enable.
-        _source.clip.SetData(_audioData, 0);
-        PlayAudio();
+        if (_source != null)
+        {
+            // Start playing audio on object enable.
+            _source.clip.SetData(_audioData, 0);
+            PlayAudio();
+        }
+
     }
 
     private void OnDisable()
@@ -165,6 +174,11 @@ public class AudioProcessor : MonoBehaviour
             }
 #endif
         }
+        else
+        {
+            error = true;
+        }
+
         return !error;
     }
 
