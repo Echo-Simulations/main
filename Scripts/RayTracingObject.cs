@@ -16,9 +16,10 @@ public class RayTracingObject : MonoBehaviour
         // ...
     };
 
-    public bool isSoundSource = false;
+    private bool isSoundSource = false;
     private int soundSourceId = 0;
-    public acousticBehavior acoustics;
+    //Make public if you want to interact with acoustic properties
+    private acousticBehavior acoustics;
 
     private Mesh mesh;
     private acousticBehavior savedAcoustics;
@@ -29,6 +30,10 @@ public class RayTracingObject : MonoBehaviour
     {
         if (this.gameObject.GetComponent<MeshFilter>().mesh != null)
         {
+            if(this.gameObject.GetComponent<AudioProcessor>() != null)
+            {
+                isSoundSource = true;
+            }
             RayTracingMaster.RegisterObject(this);
             isRegistered = true;
         }
@@ -46,6 +51,7 @@ public class RayTracingObject : MonoBehaviour
         }
 
         mesh = null;
+        isSoundSource = false;
     }
 
     private void OnDestroy()
@@ -57,6 +63,7 @@ public class RayTracingObject : MonoBehaviour
         }
 
         mesh = null;
+        isSoundSource = false;
     }
 
     private void FixedUpdate()
@@ -81,5 +88,10 @@ public class RayTracingObject : MonoBehaviour
     {
         get { return soundSourceId; }
         set { soundSourceId = value; }
+    }
+
+    public bool IsSoundSource
+    {
+        get { return isSoundSource;  }
     }
 }

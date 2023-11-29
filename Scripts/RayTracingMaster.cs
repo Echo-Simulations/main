@@ -15,12 +15,16 @@ public class RayTracingMaster : MonoBehaviour
     //Range values are mostly tentative/arbitrary EXCEPT FOR DIFFRACTIONS. DO NOT CHANGE DIFFRACTIONS.
     [Range(0, 15)]
     public int Bounces = 0; //The maximum number of reflections allowed
+    private int prevBounces = 0;
     [Range(0,7)]
     public int Diffractions = 0; //The maximum number of diffractions allowed
+    private int prevDiffractions = 0;
     [Range(1, 1024)]
     public int w = Screen.width; //The width of the ray tracing texture
+    private int prevW = Screen.width;
     [Range(1, 1024)]
     public int h = Screen.height; //The height of the ray tracing texture
+    public int prevH = Screen.height;
 
     private Transform _transform; //The transform of the listener (the object this script is attached to)
     private RenderTexture _target; //The texture the GPU writes to; does not exist in CPU memory
@@ -28,6 +32,7 @@ public class RayTracingMaster : MonoBehaviour
     private static List<Transform> _transformsToWatch = new List<Transform>(); //An array of transforms of relevant objects
     private static bool _meshObjectsNeedRebuilding = false; //A flag for if the scene has changed
     private static bool _transformsNeedRebuilding = false;
+    private static bool _parametersChanged = false;
     private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
     private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); //An array of objects that are also sound sources
     private static List<AudioProcessor> _sourceProcessors = new List<AudioProcessor>(); //An array of audio processors on sound sources
@@ -80,6 +85,11 @@ public class RayTracingMaster : MonoBehaviour
         _transform = GetComponent<Transform>();
 
         _transformsToWatch.Add(transform);
+
+        prevBounces = Bounces;
+        prevDiffractions = Diffractions;
+        prevW = w;
+        prevH = h;
     }
 
     private void OnDestroy()
@@ -115,13 +125,21 @@ public class RayTracingMaster : MonoBehaviour
                 _transformsNeedRebuilding = true;
             }
         }
+        if(Bounces != prevBounces || Diffractions != prevDiffractions || w != prevW || h != prevH)
+        {
+            prevBounces = Bounces;
+            prevDiffractions = Diffractions;
+            prevW = w;
+            prevH = h;
+            _parametersChanged = true;
+        }
     }
 
     public static void RegisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Add(obj);
         _transformsToWatch.Add(obj.transform);
-        if (obj.isSoundSource)
+        if (obj.IsSoundSource)
         {
             AudioProcessor processor = obj.GetComponent<AudioProcessor>();
             if (_soundSources.Count < 255 || processor == null)
@@ -142,7 +160,7 @@ public class RayTracingMaster : MonoBehaviour
     public static void UnregisterObject(RayTracingObject obj)
     {
         _rayTracingObjects.Remove(obj);
-        if (obj.isSoundSource)
+        if (obj.IsSoundSource)
         {
             _soundSources.Remove(obj);
             _sourceProcessors.Remove(obj.GetComponent<AudioProcessor>());
@@ -189,7 +207,7 @@ public class RayTracingMaster : MonoBehaviour
 
             // Calculate sound source identifier
             int id = 0;
-            if (obj.isSoundSource)
+            if (obj.IsSoundSource)
             {
                 id = _soundSources.FindIndex(x => x.gameObject == obj.gameObject)+1;
                 obj.Id = id;
@@ -356,16 +374,17 @@ public class RayTracingMaster : MonoBehaviour
     {
         //Only re-render if something has changed.
         //Has a slim chance of causing unexpected behavior
-        if (_meshObjectsNeedRebuilding || _transformsNeedRebuilding)
+        if (_meshObjectsNeedRebuilding || _transformsNeedRebuilding || _parametersChanged)
         {
             if (_meshObjectsNeedRebuilding)
             {
                 RebuildMeshObjectBuffers();
             }
-            else
+            else if (_transformsNeedRebuilding)
             {
                 RebuildTransformationMatrices();
             }
+            _parametersChanged = false;
             SetShaderParameters();
             Render();
         }
