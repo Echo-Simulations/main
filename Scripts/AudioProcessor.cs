@@ -12,6 +12,8 @@ public class AudioProcessor : MonoBehaviour
     private AudioSource _source; // The audio source for this listener.
                                  // This necessarily must be possessed by this
                                  // object.
+    private AudioClip _clip; // The audio clip containing the initial state of
+                             // the sample data.
     private RayTracingObject _obj; // This ray tracing object.
     private float[] _audioData; // The audio buffer containing sample data.
     private float[] _modifiedAudioData; // Secondary buffer from which the
@@ -30,20 +32,7 @@ public class AudioProcessor : MonoBehaviour
         if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
             && _source.clip.length <= MAX_LEN)
         {
-            // Prepare sample buffers and retrieve data.
-            _audioData = new float[_source.clip.samples*_source.clip.channels];
-            _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
-            _source.clip.GetData(_audioData, 0);
-
-            // Create distinct clip.
-            AudioClip destructible_clip = AudioClip.Create(_source.clip.name,
-                _source.clip.samples, _source.clip.channels,
-                _source.clip.frequency, false);
-            destructible_clip.SetData(_audioData, 0);
-            _source.clip = destructible_clip;
-
-            // Loop audio source.
-            _source.loop = true;
+            PrepareAudio();
         }
 #if UNITY_EDITOR
         else
@@ -56,11 +45,22 @@ public class AudioProcessor : MonoBehaviour
         PlayAudio();
     }
 
+    private void Update()
+    {
+        // Gracefully handle the user changing the audio clip.
+        if (_clip != _source.clip && _source.clip != null
+            && _source.clip.frequency <= MAX_FREQ
+            && _source.clip.length <= MAX_LEN)
+        {
+            PrepareAudio();
+        }
+    }
+
     private void OnDestroy()
     {
         // Stop all audio on object destroy.
         StopAudio(false);
-        _source.clip.SetData(_audioData, 0);
+        _clip.SetData(_audioData, 0);
     }
 
     private void OnEnable()
@@ -68,7 +68,7 @@ public class AudioProcessor : MonoBehaviour
         if (_source != null)
         {
             // Start playing audio on object enable.
-            _source.clip.SetData(_audioData, 0);
+            _clip.SetData(_audioData, 0);
             PlayAudio();
         }
 
@@ -78,7 +78,25 @@ public class AudioProcessor : MonoBehaviour
     {
         // Stop all audio on object disable.
         StopAudio(false);
-        _source.clip.SetData(_audioData, 0);
+        _clip.SetData(_audioData, 0);
+    }
+
+    private void PrepareAudio()
+    {
+        // Prepare sample buffers and retrieve data.
+        _audioData = new float[_source.clip.samples*_source.clip.channels];
+        _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
+        _source.clip.GetData(_audioData, 0);
+
+        // Create distinct clip.
+        AudioClip destructible_clip = AudioClip.Create(_source.clip.name,
+            _source.clip.samples, _source.clip.channels,
+            _source.clip.frequency, false);
+        destructible_clip.SetData(_audioData, 0);
+        _source.clip = _clip = destructible_clip;
+
+        // Loop audio source.
+        _source.loop = true;
     }
 
     // Update the audio buffer.
@@ -87,10 +105,10 @@ public class AudioProcessor : MonoBehaviour
     //       audio manipulation should be followed by a call to UpdateAudio().
     private void UpdateAudio()
     {
-        if (_source.clip != null)
+        if (_clip != null)
         {
             // Pack sample data.
-            _source.clip.SetData(_modifiedAudioData, 0);
+            _clip.SetData(_modifiedAudioData, 0);
         }
 #if UNITY_EDITOR
         else
@@ -163,7 +181,15 @@ public class AudioProcessor : MonoBehaviour
             // Update the audio buffer.
             if (!error)
             {
-                UpdateAudio();
+                if (_source.isPlaying)
+                {
+                    UpdateAudio();
+                }
+                else
+                {
+                    // NOTE: SendTexture will never be invoked when disabled.
+                    PlayAudio();
+                }
             }
 #if UNITY_EDITOR
             else
@@ -185,7 +211,7 @@ public class AudioProcessor : MonoBehaviour
     // Play audio over Unity's own audio system.
     public void PlayAudio()
     {
-        if (_source.clip != null && !_source.isPlaying)
+        if (_clip != null && !_source.isPlaying)
         {
             // Ensure audio is up-to-date before playing.
             UpdateAudio();
@@ -204,7 +230,7 @@ public class AudioProcessor : MonoBehaviour
     // Stop any currently playing audio.
     public void StopAudio(bool pause)
     {
-        if (_source.clip != null && _source.isPlaying)
+        if (_clip != null && _source.isPlaying)
         {
             // Either pause or stop the source.
             if (pause)
