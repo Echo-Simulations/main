@@ -18,19 +18,19 @@ public class RayTracingObject : MonoBehaviour
 
     private bool isSoundSource = false;
     private int soundSourceId = 0;
-    //Make public if you want to interact with acoustic properties
+    // Make public if you want to interact with acoustic properties
     private acousticBehavior acoustics;
 
     private Mesh mesh;
     private acousticBehavior savedAcoustics;
 
-    private bool isRegistered = false; //Used to ensure only valid meshes are used
+    private bool isRegistered = false; // Used to ensure only valid meshes are used
 
     private void OnEnable()
     {
         if (this.gameObject.GetComponent<MeshFilter>().mesh != null)
         {
-            if(this.gameObject.GetComponent<AudioProcessor>() != null)
+            if (this.gameObject.GetComponent<AudioProcessor>() != null)
             {
                 isSoundSource = true;
             }
@@ -69,14 +69,14 @@ public class RayTracingObject : MonoBehaviour
     private void FixedUpdate()
     {
 #if UNITY_EDITOR
-        //Throw an exception if the mesh changes while the object is enabled
-        if(transform.GetComponent<MeshFilter>().mesh != mesh)
+        // Throw an exception if the mesh changes while the object is enabled
+        if (transform.GetComponent<MeshFilter>().mesh != mesh)
         {
             Debug.LogError("ERROR: Cannot change ray tracing mesh while it is enabled");
         }
 #endif
-        //Re-register when acoustic properties change
-        if(!(acoustics.Equals(savedAcoustics)) && isRegistered)
+        // Re-register when acoustic properties change
+        if (!(acoustics.Equals(savedAcoustics)) && isRegistered)
         {
             savedAcoustics = acoustics;
             RayTracingMaster.UnregisterObject(this);

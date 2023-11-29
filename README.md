@@ -1,4 +1,8 @@
-# Audio Ray Tracing experimentation
+# Echo Simulations - Audio Ray Tracer
+
+## Information
+
+This repository contains an implementation of an audio ray tracing engine for Unity 2022.3.7f1 in C# using Unity's API. Rays are simulated using the GPU using a compute shader to achieve superior performance. The officially supported platforms are desktop Windows and Linux with a dedicated GPU.
 
 ## Setup 
 

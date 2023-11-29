@@ -12,37 +12,37 @@ public class RayTracingMaster : MonoBehaviour
     public ComputeShader RayTracingShader;
 
     [Header("Customization")]
-    //Range values are mostly tentative/arbitrary EXCEPT FOR DIFFRACTIONS. DO NOT CHANGE DIFFRACTIONS.
+    // Range values are mostly tentative/arbitrary EXCEPT FOR DIFFRACTIONS. DO NOT CHANGE DIFFRACTIONS.
     [Range(0, 15)]
-    public int Bounces = 0; //The maximum number of reflections allowed
+    public int Bounces = 0; // The maximum number of reflections allowed
     private int prevBounces = 0;
     [Range(0,7)]
-    public int Diffractions = 0; //The maximum number of diffractions allowed
+    public int Diffractions = 0; // The maximum number of diffractions allowed
     private int prevDiffractions = 0;
     [Range(1, 1024)]
-    public int w = Screen.width; //The width of the ray tracing texture
+    public int w = Screen.width; // The width of the ray tracing texture
     private int prevW = Screen.width;
     [Range(1, 1024)]
-    public int h = Screen.height; //The height of the ray tracing texture
+    public int h = Screen.height; // The height of the ray tracing texture
     public int prevH = Screen.height;
 
-    private Transform _transform; //The transform of the listener (the object this script is attached to)
-    private RenderTexture _target; //The texture the GPU writes to; does not exist in CPU memory
+    private Transform _transform; // The transform of the listener (the object this script is attached to)
+    private RenderTexture _target; // The texture the GPU writes to; does not exist in CPU memory
 
-    private static List<Transform> _transformsToWatch = new List<Transform>(); //An array of transforms of relevant objects
-    private static bool _meshObjectsNeedRebuilding = false; //A flag for if the scene has changed
+    private static List<Transform> _transformsToWatch = new List<Transform>(); // An array of transforms of relevant objects
+    private static bool _meshObjectsNeedRebuilding = false; // A flag for if the scene has changed
     private static bool _transformsNeedRebuilding = false;
     private static bool _parametersChanged = false;
-    private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); //An array of objects that rays collide with
-    private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); //An array of objects that are also sound sources
-    private static List<AudioProcessor> _sourceProcessors = new List<AudioProcessor>(); //An array of audio processors on sound sources
+    private static List<RayTracingObject> _rayTracingObjects = new List<RayTracingObject>(); // An array of objects that rays collide with
+    private static List<RayTracingObject> _soundSources = new List<RayTracingObject>(); // An array of objects that are also sound sources
+    private static List<AudioProcessor> _sourceProcessors = new List<AudioProcessor>(); // An array of audio processors on sound sources
 
-    private static List<MeshObject> _meshObjects = new List<MeshObject>(); //An array of all mesh data in the scene in the CPU
-    private static List<Vector3> _vertices = new List<Vector3>(); //An array of all vertexes in the scene in the CPU
-    private static List<int> _indices = new List<int>(); //An array of all polygon data in the scene in the CPU
-    private ComputeBuffer _meshObjectBuffer; //An array of all mesh data in the scene in the GPU
-    private ComputeBuffer _vertexBuffer; //An array of all vertexes in the scene in the GPU
-    private ComputeBuffer _indexBuffer; //An array of all polygon data in the scene in the GPU
+    private static List<MeshObject> _meshObjects = new List<MeshObject>(); // An array of all mesh data in the scene in the CPU
+    private static List<Vector3> _vertices = new List<Vector3>(); // An array of all vertexes in the scene in the CPU
+    private static List<int> _indices = new List<int>(); // An array of all polygon data in the scene in the CPU
+    private ComputeBuffer _meshObjectBuffer; // An array of all mesh data in the scene in the GPU
+    private ComputeBuffer _vertexBuffer; // An array of all vertexes in the scene in the GPU
+    private ComputeBuffer _indexBuffer; // An array of all polygon data in the scene in the GPU
 
     private static List<Vector3> _rayPos = new List<Vector3>();
     private static List<Vector3> _rayDir = new List<Vector3>();
@@ -51,8 +51,8 @@ public class RayTracingMaster : MonoBehaviour
     private ComputeBuffer _rayDirBuffer;
     private ComputeBuffer _rayEnabledBuffer;
 
-    private NativeArray<float> _buffer; //The return value of the ray tracing, expressed as a float array
-    private bool _isBusy = false; //Used to avoid timing issues
+    private NativeArray<float> _buffer; // The return value of the ray tracing, expressed as a float array
+    private bool _isBusy = false; // Used to avoid timing issues
 
     private const int _parameterCount = 2; //Represents the number of channels necessary per ray
     private const int _computeBufferCount = 6; //Represents the number of compute buffers we are using
@@ -67,11 +67,11 @@ public class RayTracingMaster : MonoBehaviour
         public Vector3 extents;
     }
 
-    //Plays immediately upon application startup
+    // Plays immediately upon application startup
     private void Awake()
     {
 #if UNITY_EDITOR
-        //Test if there is hardware support for all of the features the program needs
+        // Test if there is hardware support for all of the features the program needs
         if (!(SystemInfo.SupportsRenderTextureFormat(RenderTextureFormat.RFloat) &&
             SystemInfo.supports2DArrayTextures &&
             SystemInfo.supportsAsyncGPUReadback &&
@@ -102,7 +102,7 @@ public class RayTracingMaster : MonoBehaviour
         _rayEnabledBuffer?.Release();
     }
 
-    //Plays upon application quit
+    // Plays upon application quit
     private void OnApplicationQuit()
     {
         _meshObjectBuffer?.Release();
@@ -113,7 +113,7 @@ public class RayTracingMaster : MonoBehaviour
         _rayEnabledBuffer?.Release();
     }
 
-    //Plays once every frame
+    // Plays once every frame
     private void Update()
     {
         foreach (Transform t in _transformsToWatch)
@@ -125,7 +125,7 @@ public class RayTracingMaster : MonoBehaviour
                 _transformsNeedRebuilding = true;
             }
         }
-        if(Bounces != prevBounces || Diffractions != prevDiffractions || w != prevW || h != prevH)
+        if (Bounces != prevBounces || Diffractions != prevDiffractions || w != prevW || h != prevH)
         {
             prevBounces = Bounces;
             prevDiffractions = Diffractions;
@@ -169,7 +169,7 @@ public class RayTracingMaster : MonoBehaviour
         _meshObjectsNeedRebuilding = true;
     }
 
-    //Remakes internal buffers with current scene geometry data
+    // Remakes internal buffers with current scene geometry data
     private void RebuildMeshObjectBuffers()
     {
         if (!_meshObjectsNeedRebuilding)
@@ -287,10 +287,10 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    //Primes the compute shader
+    // Primes the compute shader
     private void SetShaderParameters()
     {
-        //Pass in the source location
+        // Pass in the source location
         Matrix4x4 matrix = _transform.localToWorldMatrix;
         matrix[0, 2] = -1.0f * matrix[0, 2];
         matrix[1, 2] = -1.0f * matrix[1, 2];
@@ -314,7 +314,7 @@ public class RayTracingMaster : MonoBehaviour
         {
             _rayPos.Add(new Vector3(0.0f, 0.0f, 0.0f));
             _rayDir.Add(new Vector3(0.0f, 0.0f, 0.0f));
-            if(i < w * h)
+            if (i < w * h)
             {
                 _rayEnabled.Add(0);
             }
@@ -347,7 +347,7 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    //Dispatches the compute shader and returns its result asynchronously
+    // Dispatches the compute shader and returns its result asynchronously
     private void Render()
     {
         // Make sure we have a current render target
@@ -359,7 +359,7 @@ public class RayTracingMaster : MonoBehaviour
         int threadGroupsY = Mathf.CeilToInt(h / 4.0f);
         RayTracingShader.Dispatch(0, threadGroupsX, threadGroupsY, Diffractions + 1);
 
-        //Use an asynchronous readback request to get the data out of the render texture
+        // Use an asynchronous readback request to get the data out of the render texture
         if (_isBusy == false)
         {
             _isBusy = true;
@@ -368,12 +368,12 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    //Plays every fixed timestep independently of actual framerate
-    //The exact rate is controlled by the project settings
+    // Plays every fixed timestep independently of actual framerate
+    // The exact rate is controlled by the project settings
     private void FixedUpdate()
     {
-        //Only re-render if something has changed.
-        //Has a slim chance of causing unexpected behavior
+        // Only re-render if something has changed.
+        // Has a slim chance of causing unexpected behavior
         if (_meshObjectsNeedRebuilding || _transformsNeedRebuilding || _parametersChanged)
         {
             if (_meshObjectsNeedRebuilding)
@@ -390,8 +390,8 @@ public class RayTracingMaster : MonoBehaviour
         }
     }
 
-    //Plays whenever the compute shader finishes execution
-    //Will skip some frames when there are multiple updates back-to-back
+    // Plays whenever the compute shader finishes execution
+    // Will skip some frames when there are multiple updates back-to-back
     private void OnCompleteReadback(AsyncGPUReadbackRequest request)
     {
         if (request.hasError)
@@ -404,13 +404,13 @@ public class RayTracingMaster : MonoBehaviour
         {
             //Debug.Log("Native Array acquired.");
 
-            //This is where you would make the program use the buffer data
-            //Right now, make it print some basic data
+            // This is where you would make the program use the buffer data
+            // Right now, make it print some basic data
 #if DBG_SHOW_READBACK && UNITY_EDITOR
             int count = 0;
             for(int i = 0; i < _buffer.Length; i++)
             {
-                if(_buffer[i] > 0.0f)
+                if (_buffer[i] > 0.0f)
                 {
                     count++;
                 }

@@ -143,23 +143,23 @@ public class AudioProcessor : MonoBehaviour
                 if (data[index] > (id - 0.5f) / 256 &&
                     data[index] < (id + 0.5f) / 256)
                 {
-                    //Distance for volume
-                    //Taking the average (There are probably better alternatives)
+                    // Distance for volume
+                    // Taking the average (There are probably better alternatives)
                     if (data[index + texSize] > 0.0f)
                     {
                         distance = (distance + (1.0f - data[index + texSize]));
                         distanceCount++;
                     }
-                    //Other attributes
+                    // Other attributes
                 }
             }
         }
-        //Translate into volume
+        // Translate into volume
         if (distanceCount != 0 && distance / distanceCount >= 0.0f)
         {
             _volume = distance / distanceCount;
-            //Scale the volume to a reasonable level (so it's not audible from 1000 m away)
-            //This method introduces a lot of variability. An alternative should be found if possible
+            // Scale the volume to a reasonable level (so it's not audible from 1000 m away)
+            // This method introduces a lot of variability. An alternative should be found if possible
             //_volume = Mathf.Pow(_volume, 100);
         }
         else
