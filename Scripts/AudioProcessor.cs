@@ -60,7 +60,10 @@ public class AudioProcessor : MonoBehaviour
     {
         // Stop all audio on object destroy.
         StopAudio(false);
-        _clip.SetData(_audioData, 0);
+        if (_clip != null)
+        {
+            _clip.SetData(_audioData, 0);
+        }
     }
 
     private void OnEnable()
@@ -68,7 +71,10 @@ public class AudioProcessor : MonoBehaviour
         if (_source != null)
         {
             // Start playing audio on object enable.
-            _clip.SetData(_audioData, 0);
+            if (_clip != null)
+            {
+                _clip.SetData(_audioData, 0);
+            }
             PlayAudio();
         }
 
@@ -78,7 +84,10 @@ public class AudioProcessor : MonoBehaviour
     {
         // Stop all audio on object disable.
         StopAudio(false);
-        _clip.SetData(_audioData, 0);
+        if (_clip != null)
+        {
+            _clip.SetData(_audioData, 0);
+        }
     }
 
     private void PrepareAudio()
