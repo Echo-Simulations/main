@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
-[RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
+[RequireComponent(typeof(RayTracingObject), typeof(AudioSource), typeof(AudioReverbFilter))]
 public class AudioProcessor : MonoBehaviour
 {
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
@@ -14,6 +14,8 @@ public class AudioProcessor : MonoBehaviour
                                  // object.
     private AudioClip _clip; // The audio clip containing the initial state of
                              // the sample data.
+    private AudioReverbFilter _reverb;
+
     private RayTracingObject _obj; // This ray tracing object.
     private float[] _audioData; // The audio buffer containing sample data.
     private float[] _modifiedAudioData; // Secondary buffer from which the
@@ -28,6 +30,7 @@ public class AudioProcessor : MonoBehaviour
         //       clip is supported.
         _source = GetComponent<AudioSource>();
         _obj = GetComponent<RayTracingObject>();
+        _reverb = GetComponent<AudioReverbFilter>();
         // Enforce presence of sound clip.
         if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
             && _source.clip.length <= MAX_LEN)
@@ -41,6 +44,9 @@ public class AudioProcessor : MonoBehaviour
                 + " properties acceptable to the processor.");
         }
 #endif
+        _reverb.reverbPreset = AudioReverbPreset.Off;
+        _reverb.reverbPreset = AudioReverbPreset.User;
+        _reverb.room = 0.0f;
         // Play audio (if valid).
         PlayAudio();
     }
@@ -137,6 +143,7 @@ public class AudioProcessor : MonoBehaviour
     {
         bool error = false;
         float distance = 0.0f;
+        float difference = 0.0f;
         int distanceCount = 0;
         int id = _obj.Id;
 
@@ -166,10 +173,7 @@ public class AudioProcessor : MonoBehaviour
         // Translate into volume
         if (distanceCount != 0 && distance / distanceCount >= 0.0f)
         {
-            _volume = distance / distanceCount;
-            // Scale the volume to a reasonable level (so it's not audible from 1000 m away)
-            // This method introduces a lot of variability. An alternative should be found if possible
-            //_volume = Mathf.Pow(_volume, 100);
+            _volume = distance / distanceCount; //Doubles as the mean of the distance
         }
         else
         {
@@ -179,6 +183,37 @@ public class AudioProcessor : MonoBehaviour
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
+        //Calculate standard deviation of distance
+        for (int i = 0; i < texSize; i++)
+        {
+            for (int j = 0; j < layers; j++)
+            {
+                int index = i + j * parameterCount * texSize;
+                // Manipulate _audioData, breaking if there was an error.
+                // .. if (error_condition) { error = true; break; }
+
+                if (data[index] > (id - 0.5f) / 256 &&
+                    data[index] < (id + 0.5f) / 256)
+                {
+                    // Distance for volume
+                    // Taking the average (There are probably better alternatives)
+                    if (data[index + texSize] > 0.0f)
+                    {
+                        difference += Mathf.Abs((1.0f - data[index + texSize]) - _volume);
+                    }
+                    // Other attributes
+                }
+            }
+        }
+        difference = difference / distanceCount;
+        if(difference > 0.0f) difference = Mathf.Sqrt(difference);
+#if UNITY_EDITOR
+        Debug.Log("[" + GetType().ToString() + "] New SD is " + difference
+            + "\n(" + distance + ", " + distanceCount + ")");
+#endif
+        //Update the reverb
+        _reverb.roomHF = -10000 + 10000 * difference;
+
         // Update the sample array iff characteristics have changed.
         if (_modifiedAudioData != null)
         {
