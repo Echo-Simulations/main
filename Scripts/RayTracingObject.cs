@@ -28,17 +28,33 @@ public class RayTracingObject : MonoBehaviour
 
     private void OnEnable()
     {
-        if (this.gameObject.GetComponent<MeshFilter>().mesh != null)
+        Mesh stored_mesh = transform.GetComponent<MeshFilter>().sharedMesh;
+        if (stored_mesh != null)
         {
-            if (this.gameObject.GetComponent<AudioProcessor>() != null)
+            if (stored_mesh.triangles.Length > 0)
             {
-                isSoundSource = true;
+                if (this.gameObject.GetComponent<AudioProcessor>() != null)
+                {
+                    isSoundSource = true;
+                }
+                RayTracingMaster.RegisterObject(this);
+                isRegistered = true;
             }
-            RayTracingMaster.RegisterObject(this);
-            isRegistered = true;
+#if UNITY_EDITOR
+            else
+            {
+                Debug.LogError("ERROR: Mesh contains no triangle data");
+            }
+#endif
         }
+#if UNITY_EDITOR
+        else
+        {
+            Debug.LogError("ERROR: Must specify a mesh");
+        }
+#endif
 
-        mesh = transform.GetComponent<MeshFilter>().mesh;
+        mesh = stored_mesh;
         savedAcoustics = acoustics;
     }
 
@@ -70,7 +86,7 @@ public class RayTracingObject : MonoBehaviour
     {
 #if UNITY_EDITOR
         // Throw an exception if the mesh changes while the object is enabled
-        if (transform.GetComponent<MeshFilter>().mesh != mesh)
+        if (transform.GetComponent<MeshFilter>().sharedMesh != mesh)
         {
             Debug.LogError("ERROR: Cannot change ray tracing mesh while it is enabled");
         }
