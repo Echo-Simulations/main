@@ -350,6 +350,11 @@ public class RayTracingMaster : MonoBehaviour
     // Dispatches the compute shader and returns its result asynchronously
     private void Render()
     {
+        if(_rayTracingObjects.Count == 0)
+        {
+            return;
+        }
+
         // Make sure we have a current render target
         InitRenderTexture();
 
