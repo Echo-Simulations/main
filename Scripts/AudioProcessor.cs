@@ -173,7 +173,6 @@ public class AudioProcessor : MonoBehaviour
                         distance = (distance + (1.0f - data[index + texSize]));
                         distanceCount++;
                     }
-                    // Other attributes
                 }
             }
         }
@@ -192,37 +191,38 @@ public class AudioProcessor : MonoBehaviour
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
 
-        // Calculate standard deviation of distance.
-        for (int i = 0; i < texSize; i++)
+        if (_reverb != null)
         {
-            for (int j = 0; j < layers; j++)
+            // Calculate standard deviation of distance.
+            for (int i = 0; i < texSize; i++)
             {
-                int index = i + j * parameterCount * texSize;
-                // Manipulate _audioData, breaking if there was an error.
-                // .. if (error_condition) { error = true; break; }
-
-                if (data[index] > (id - 0.5f) / 256 &&
-                    data[index] < (id + 0.5f) / 256)
+                for (int j = 0; j < layers; j++)
                 {
-                    // Distance for volume
-                    // Taking the average (There are probably better alternatives)
-                    if (data[index + texSize] > 0.0f)
+                    int index = i + j * parameterCount * texSize;
+                    // Manipulate _audioData, breaking if there was an error.
+                    // .. if (error_condition) { error = true; break; }
+
+                    if (data[index] > (id - 0.5f) / 256 &&
+                        data[index] < (id + 0.5f) / 256)
                     {
-                        difference += Mathf.Abs((1.0f - data[index + texSize]) - _volume);
+                        // Distance for volume
+                        // Taking the average (There are probably better alternatives)
+                        if (data[index + texSize] > 0.0f)
+                        {
+                            difference += Mathf.Abs((1.0f - data[index + texSize]) - _volume);
+                        }
                     }
-                    // Other attributes
                 }
             }
-        }
-        difference = difference / distanceCount;
-        if (difference > 0.0f) difference = Mathf.Sqrt(difference);
+            difference = difference / distanceCount;
+            if (difference > 0.0f) difference = Mathf.Sqrt(difference);
 #if UNITY_EDITOR
-        Debug.Log("[" + GetType().ToString() + "] New SD is " + difference
-            + "\n(" + distance + ", " + distanceCount + ")");
+            Debug.Log("[" + GetType().ToString() + "] New SD is " + difference
+                + "\n(" + distance + ", " + distanceCount + ")");
 #endif
-        // Update the reverb.
-        if (_reverb != null)
+            // Update the reverb.
             _reverb.roomHF = -10000 + 10000 * difference;
+        }
 
         // Update the sample array iff characteristics have changed.
         if (_modifiedAudioData != null)
