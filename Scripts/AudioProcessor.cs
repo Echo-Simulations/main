@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
-[RequireComponent(typeof(RayTracingObject), typeof(AudioSource), typeof(AudioReverbFilter))]
+[RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
 {
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
@@ -31,6 +31,13 @@ public class AudioProcessor : MonoBehaviour
         _source = GetComponent<AudioSource>();
         _obj = GetComponent<RayTracingObject>();
         _reverb = GetComponent<AudioReverbFilter>();
+        if (_reverb != null)
+        {
+            _reverb.reverbPreset = AudioReverbPreset.Off;
+            _reverb.reverbPreset = AudioReverbPreset.User;
+            _reverb.room = 0.0f;
+        }
+
         // Enforce presence of sound clip.
         if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
             && _source.clip.length <= MAX_LEN)
@@ -44,9 +51,7 @@ public class AudioProcessor : MonoBehaviour
                 + " properties acceptable to the processor.");
         }
 #endif
-        _reverb.reverbPreset = AudioReverbPreset.Off;
-        _reverb.reverbPreset = AudioReverbPreset.User;
-        _reverb.room = 0.0f;
+
         // Play audio (if valid).
         PlayAudio();
     }
@@ -66,6 +71,7 @@ public class AudioProcessor : MonoBehaviour
     {
         // Stop all audio on object destroy.
         StopAudio(false);
+
         if (_clip != null)
         {
             _clip.SetData(_audioData, 0);
@@ -81,6 +87,7 @@ public class AudioProcessor : MonoBehaviour
             {
                 _clip.SetData(_audioData, 0);
             }
+
             PlayAudio();
         }
 
@@ -179,11 +186,13 @@ public class AudioProcessor : MonoBehaviour
         {
             _volume = 0.0f;
         }
+
 #if UNITY_EDITOR
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
-        //Calculate standard deviation of distance
+
+        // Calculate standard deviation of distance.
         for (int i = 0; i < texSize; i++)
         {
             for (int j = 0; j < layers; j++)
@@ -206,13 +215,14 @@ public class AudioProcessor : MonoBehaviour
             }
         }
         difference = difference / distanceCount;
-        if(difference > 0.0f) difference = Mathf.Sqrt(difference);
+        if (difference > 0.0f) difference = Mathf.Sqrt(difference);
 #if UNITY_EDITOR
         Debug.Log("[" + GetType().ToString() + "] New SD is " + difference
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
-        //Update the reverb
-        _reverb.roomHF = -10000 + 10000 * difference;
+        // Update the reverb.
+        if (_reverb != null)
+            _reverb.roomHF = -10000 + 10000 * difference;
 
         // Update the sample array iff characteristics have changed.
         if (_modifiedAudioData != null)
@@ -259,6 +269,7 @@ public class AudioProcessor : MonoBehaviour
         {
             // Ensure audio is up-to-date before playing.
             UpdateAudio();
+
             // Either unpause or play the source.
             if (_source.time == 0f)
             {
