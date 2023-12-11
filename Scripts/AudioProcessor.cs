@@ -1,34 +1,48 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEditor;
 
 [RequireComponent(typeof(RayTracingObject), typeof(AudioSource))]
 public class AudioProcessor : MonoBehaviour
 {
     public const int MAX_FREQ = 48000; // Maximum acceptible frequency in hertz.
+    public const int MAX_LEN = 60*60; // Maximum acceptible length in seconds.
 
     private AudioSource _source; // The audio source for this listener.
                                  // This necessarily must be possessed by this
                                  // object.
+    private AudioClip _clip; // The audio clip containing the initial state of
+                             // the sample data.
+    private AudioReverbFilter _reverb;
+
+    private RayTracingObject _obj; // This ray tracing object.
     private float[] _audioData; // The audio buffer containing sample data.
     private float[] _modifiedAudioData; // Secondary buffer from which the
                                         // original sample data is modified.
-    private bool _hasClip = false; // Whether the audio source is assigned a
-                                   // valid audio clip.
     private float _volume = 1.0f; // The current volume of the audio clip.
 
     private void Start()
     {
+        // NOTE: Source must include a sound clip component to be considered
+        //       valid. It is recommended to use a unique clip for each audio
+        //       source, though multiple sources referencing the same audio
+        //       clip is supported.
         _source = GetComponent<AudioSource>();
-        // Enforce presence of sound clip.
-        if (_source.clip != null && _source.clip.frequency <= MAX_FREQ)
+        _obj = GetComponent<RayTracingObject>();
+        _reverb = GetComponent<AudioReverbFilter>();
+        if (_reverb != null)
         {
-            // Prepare sample buffers and retrieve data.
-            _audioData = new float[_source.clip.samples*_source.clip.channels];
-            _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
-            _source.clip.GetData(_audioData, 0);
-            _source.loop = true;
-            _hasClip = true;
+            _reverb.reverbPreset = AudioReverbPreset.Off;
+            _reverb.reverbPreset = AudioReverbPreset.User;
+            _reverb.room = 0.0f;
+        }
+
+        // Enforce presence of sound clip.
+        if (_source.clip != null && _source.clip.frequency <= MAX_FREQ
+            && _source.clip.length <= MAX_LEN)
+        {
+            PrepareAudio();
         }
 #if UNITY_EDITOR
         else
@@ -37,25 +51,74 @@ public class AudioProcessor : MonoBehaviour
                 + " properties acceptable to the processor.");
         }
 #endif
+
         // Play audio (if valid).
         PlayAudio();
     }
 
+    private void Update()
+    {
+        // Gracefully handle the user changing the audio clip.
+        if (_clip != _source.clip && _source.clip != null
+            && _source.clip.frequency <= MAX_FREQ
+            && _source.clip.length <= MAX_LEN)
+        {
+            PrepareAudio();
+        }
+    }
+
     private void OnDestroy()
     {
+        // Stop all audio on object destroy.
         StopAudio(false);
+
+        if (_clip != null)
+        {
+            _clip.SetData(_audioData, 0);
+        }
     }
 
     private void OnEnable()
     {
-        // Start playing audio on object enable.
-        PlayAudio();
+        if (_source != null)
+        {
+            // Start playing audio on object enable.
+            if (_clip != null)
+            {
+                _clip.SetData(_audioData, 0);
+            }
+
+            PlayAudio();
+        }
+
     }
 
     private void OnDisable()
     {
         // Stop all audio on object disable.
         StopAudio(false);
+        if (_clip != null)
+        {
+            _clip.SetData(_audioData, 0);
+        }
+    }
+
+    private void PrepareAudio()
+    {
+        // Prepare sample buffers and retrieve data.
+        _audioData = new float[_source.clip.samples*_source.clip.channels];
+        _modifiedAudioData = new float[_source.clip.samples * _source.clip.channels];
+        _source.clip.GetData(_audioData, 0);
+
+        // Create distinct clip.
+        AudioClip destructible_clip = AudioClip.Create(_source.clip.name,
+            _source.clip.samples, _source.clip.channels,
+            _source.clip.frequency, false);
+        destructible_clip.SetData(_audioData, 0);
+        _source.clip = _clip = destructible_clip;
+
+        // Loop audio source.
+        _source.loop = true;
     }
 
     // Update the audio buffer.
@@ -64,10 +127,10 @@ public class AudioProcessor : MonoBehaviour
     //       audio manipulation should be followed by a call to UpdateAudio().
     private void UpdateAudio()
     {
-        if (_hasClip)
+        if (_clip != null)
         {
             // Pack sample data.
-            _source.clip.SetData(_modifiedAudioData, 0);
+            _clip.SetData(_modifiedAudioData, 0);
         }
 #if UNITY_EDITOR
         else
@@ -87,7 +150,9 @@ public class AudioProcessor : MonoBehaviour
     {
         bool error = false;
         float distance = 0.0f;
+        float difference = 0.0f;
         int distanceCount = 0;
+        int id = _obj.Id;
 
         // Traverse in row-major order.
         for (int i = 0; i < texSize; i++)
@@ -98,38 +163,69 @@ public class AudioProcessor : MonoBehaviour
                 // Manipulate _audioData, breaking if there was an error.
                 // .. if (error_condition) { error = true; break; }
 
-                if (data[index] > 0.5f / 256)
+                if (data[index] > (id - 0.5f) / 256 &&
+                    data[index] < (id + 0.5f) / 256)
                 {
-                    //Distance for volume
-                    //Taking the average (There are probably better alternatives)
+                    // Distance for volume
+                    // Taking the average (There are probably better alternatives)
                     if (data[index + texSize] > 0.0f)
                     {
                         distance = (distance + (1.0f - data[index + texSize]));
                         distanceCount++;
                     }
-                    //Other attributes
                 }
             }
         }
-        //Translate into volume
-        float prevVolume = _volume;
+        // Translate into volume
         if (distanceCount != 0 && distance / distanceCount >= 0.0f)
         {
-            _volume = distance / distanceCount;
-            //Scale the volume to a reasonable level (so it's not audible from 1000 m away)
-            //This method introduces a lot of variability. An alternative should be found if possible
-            //_volume = Mathf.Pow(_volume, 100);
+            _volume = distance / distanceCount; //Doubles as the mean of the distance
         }
         else
         {
             _volume = 0.0f;
         }
+
 #if UNITY_EDITOR
         Debug.Log("[" + GetType().ToString() + "] New volume is " + _volume
             + "\n(" + distance + ", " + distanceCount + ")");
 #endif
+
+        if (_reverb != null)
+        {
+            // Calculate standard deviation of distance.
+            for (int i = 0; i < texSize; i++)
+            {
+                for (int j = 0; j < layers; j++)
+                {
+                    int index = i + j * parameterCount * texSize;
+                    // Manipulate _audioData, breaking if there was an error.
+                    // .. if (error_condition) { error = true; break; }
+
+                    if (data[index] > (id - 0.5f) / 256 &&
+                        data[index] < (id + 0.5f) / 256)
+                    {
+                        // Distance for volume
+                        // Taking the average (There are probably better alternatives)
+                        if (data[index + texSize] > 0.0f)
+                        {
+                            difference += Mathf.Abs((1.0f - data[index + texSize]) - _volume);
+                        }
+                    }
+                }
+            }
+            difference = difference / distanceCount;
+            if (difference > 0.0f) difference = Mathf.Sqrt(difference);
+#if UNITY_EDITOR
+            Debug.Log("[" + GetType().ToString() + "] New SD is " + difference
+                + "\n(" + distance + ", " + distanceCount + ")");
+#endif
+            // Update the reverb.
+            _reverb.roomHF = -10000 + 10000 * difference;
+        }
+
         // Update the sample array iff characteristics have changed.
-        if (prevVolume != _volume)
+        if (_modifiedAudioData != null)
         {
             // Update sample array accounting for volume.
             for (int i = 0; i < _modifiedAudioData.Length; i++)
@@ -139,7 +235,15 @@ public class AudioProcessor : MonoBehaviour
             // Update the audio buffer.
             if (!error)
             {
-                UpdateAudio();
+                if (_source.isPlaying)
+                {
+                    UpdateAudio();
+                }
+                else
+                {
+                    // NOTE: SendTexture will never be invoked when disabled.
+                    PlayAudio();
+                }
             }
 #if UNITY_EDITOR
             else
@@ -150,16 +254,22 @@ public class AudioProcessor : MonoBehaviour
             }
 #endif
         }
+        else
+        {
+            error = true;
+        }
+
         return !error;
     }
 
     // Play audio over Unity's own audio system.
     public void PlayAudio()
     {
-        if (_hasClip && !_source.isPlaying)
+        if (_clip != null && !_source.isPlaying)
         {
             // Ensure audio is up-to-date before playing.
             UpdateAudio();
+
             // Either unpause or play the source.
             if (_source.time == 0f)
             {
@@ -175,7 +285,7 @@ public class AudioProcessor : MonoBehaviour
     // Stop any currently playing audio.
     public void StopAudio(bool pause)
     {
-        if (_hasClip && _source.isPlaying)
+        if (_clip != null && _source.isPlaying)
         {
             // Either pause or stop the source.
             if (pause)

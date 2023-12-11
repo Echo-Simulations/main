@@ -1,7 +1,7 @@
 #pragma kernel CSMain
 #pragma only_renderers vulkan
 //#pragma only_renderers d3d11
-#pragma enable_d3d11_debug_symbols
+//#pragma enable_d3d11_debug_symbols
 
 RWTexture2DArray<float> Result;
 //Depth is equal to _Diffractions * _ParameterCount
@@ -68,7 +68,7 @@ Ray CreateRay(float3 origin, float3 direction)
     return ray;
 }
 
-//Fibonnachi Sphere Algorithm
+// Fibonacci Sphere Algorithm
 Ray CreateSphereRay(int i, int count)
 {
     float3 origin = mul(_Source, float4(0.0f, 0.0f, 0.0f, 1.0f)).xyz;
@@ -122,7 +122,7 @@ bool IntersectTriangle_MT97(Ray ray, float3 vert0, float3 vert1, float3 vert2,
 	inout float t, inout float u, inout float v)
 {
     bool ret = false;
-    //Initializing t is really unnecessary, but avoids a silly warning
+    // Initializing t is really unnecessary, but avoids a silly warning
     t = 0.0f;
 
     // find vectors for two edges sharing vert0
@@ -170,7 +170,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 	uint count = offset + meshObject.indices_count;
 	for (uint i = offset; i < count; i += 3)
 	{
-        //Find the set of vertices that compose the tri
+        // Find the set of vertices that compose the tri
 		float3 v0 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i]], 1))).xyz;
 		float3 v1 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1))).xyz;
 		float3 v2 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 2]], 1))).xyz;
@@ -185,7 +185,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 				bestHit.position = ray.origin + t * ray.direction;
 				bestHit.normal = normalize(cross(v1 - v0, v2 - v0));
                 bestHit.index = i;
-                //Determine the properties of the collision
+                // Determine the properties of the collision
                 bestHit.reflection = 1.0f;
 			}
 		}
@@ -195,7 +195,7 @@ void IntersectMeshObject(Ray ray, inout RayHit bestHit, MeshObject meshObject)
 
 bool IntersectBoundingBox(Ray ray, MeshObject meshObject)
 {
-    //Check all of the faces of the bounding box
+    // Check all of the faces of the bounding box
     for (uint i = 0; i < 36; i += 3) {
 
         float3 v0 = _Vertices[_Indices[i]] * meshObject.extents * 2 + meshObject.center;
@@ -206,7 +206,7 @@ bool IntersectBoundingBox(Ray ray, MeshObject meshObject)
         v2 = (mul(meshObject.localToWorldMatrix, float4(v2, 1))).xyz;
 
         float t, u, v;
-        //Swap two vertices to flip the face's normal
+        // Swap two vertices to flip the face's normal
         if (IntersectTriangle_MT97(ray, v0, v2, v1, t, u, v))
         {
             return true;
@@ -224,9 +224,9 @@ float DistanceToLine(float3 pos, float2x3 segment)
 {
     float3 line_vector = segment[1] - segment[0];
     float3 casting_vector = pos = segment[0];
-    //Cast the casting vector onto the line vector
+    // Cast the casting vector onto the line vector
     float3 shadow_vector = Project(casting_vector, line_vector);
-    //Return the length of the shadow
+    // Return the length of the shadow
     return sqrt(pow(shadow_vector[0], 2) + pow(shadow_vector[1], 2) + pow(shadow_vector[2], 2));
 }
 
@@ -241,22 +241,25 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
 
     for (uint i = offset; i < count; i += 3)
     {
-        //Check for polys that share 2 vertices
+        // Check for polys that share 2 vertices
         int shared_vertices = 0;
-        if (all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 2]])) {
+        if (all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index]] == _Vertices[_Indices[i + 2]]))
+        {
             shared_vertices++;
             shared_vertices_flags.x = true;
         }
-        if (all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 2]])) {
+        if (all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 1]] == _Vertices[_Indices[i + 2]]))
+        {
             shared_vertices++;
             shared_vertices_flags.y = true;
         }
-        if (all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 2]])) {
+        if (all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 1]]) || all(_Vertices[_Indices[collision.index + 2]] == _Vertices[_Indices[i + 2]]))
+        {
             shared_vertices++;
             shared_vertices_flags.z = true;
         }
             
-        if(shared_vertices == 2)
+        if (shared_vertices == 2)
         {
             float3 v0 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i]], 1))).xyz;
             float3 v1 = (mul(meshObject.localToWorldMatrix, float4(_Vertices[_Indices[i + 1]], 1))).xyz;
@@ -264,59 +267,81 @@ void CheckDiffraction(Ray ray, inout Ray diffracted_ray, RayHit collision, MeshO
 
             float3 surface_normal = normalize(cross(v1 - v0, v2 - v0));
 
-            //Compare normals
-            if (dot(surface_normal, ray.direction) > 0) //Why does it only work for < 0? It always evaluates negative?
+            // Compare normals
+            if (dot(surface_normal, ray.direction) > 0) // Why does it only work for < 0? It always evaluates negative?
             {
-                //Calculate the distance to the nearest edge
+                // Calculate the distance to the nearest edge
                 float distance = DistanceToLine(collision.position, float2x3(v0, v1));
                 distance = min(DistanceToLine(collision.position, float2x3(v1, v2)), distance);
                 distance = min(DistanceToLine(collision.position, float2x3(v2, v0)), distance);
 
-                if (distance < shortest_distance) {
+                if (distance < shortest_distance)
+                {
                     shortest_distance = distance;
                     diffracting_vertices = float3x3(v0, v1, v2);
                 }
             }
 
-            if(shortest_distance < 1.#INF)
+            if (shortest_distance < 1.#INF)
             {
                 float3 v0 = diffracting_vertices[0];
                 float3 v1 = diffracting_vertices[1];
                 float3 v2 = diffracting_vertices[2];
-                //Check if there is an open diffraction slot
+                // Check if there is an open diffraction slot
                 int index;
                 uint width, height, depth;
                 Result.GetDimensions(width, height, depth);
                 uint group = id.x + id.y * width;
                 InterlockedAdd(_RayEnabled[group], 1, index);
-                if (index < _Diffractions) {
-                    //Diffraction occurs
-                    //Calculate the position of the new vector
+                if (index < _Diffractions)
+                {
+                    // Diffraction occurs
+                    // Calculate the position and rotation of the new vector
                     float3 vecA, vecB, vecC;
-                    if (shared_vertices_flags.x && shared_vertices_flags.y) {
+                    float3 tangent_vector;
+                    if (shared_vertices_flags.x && shared_vertices_flags.y)
+                    {
                         vecA = collision.position - v0;
                         vecB = v1 - v0;
                         vecC = Project(vecA, vecB) + v0;
+                        // Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2))
+                        {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
-                    else if (shared_vertices_flags.x) {
+                    else if (shared_vertices_flags.x)
+                    {
                         vecA = collision.position - v0;
                         vecB = v2 - v0;
                         vecC = Project(vecA, vecB) + v0;
+                        // Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2))
+                        {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
-                    else {
+                    else
+                    {
                         vecA = collision.position - v1;
                         vecB = v2 - v1;
                         vecC = Project(vecA, vecB) + v1;
+                        // Rotation
+                        tangent_vector = normalize(cross(vecB, surface_normal));
+                        if (distance(v0 + tangent_vector, v2) < distance(v0 - tangent_vector, v2))
+                        {
+                            tangent_vector = tangent_vector * -1;
+                        }
                     }
 
-                    //Apply the changes to the buffers
+                    // Apply the changes to the buffers
                     _RayPos[group + (index + 1) * width * height] = vecC;
-                    //Calculate the rotation
-                    //Find the tangent vector by projecting onto the plane and normalizing
-                    float3 tangent_vector = normalize(ray.direction - Project(ray.direction, surface_normal));
+                    // Ensure that it faces the correct direction
                     _RayDir[group + (index + 1) * width * height] = normalize(ray.direction + tangent_vector); //Tangent vector pointed along the normal?
 
-                    //Store the acoustic information
+                    // Store the acoustic information
                     Result[uint3(id.x, id.y, (index + 1) * _ParameterCount + 1)] = ray.distance;
 
                     success = true;
@@ -341,20 +366,25 @@ RayHit Trace(Ray ray, uint3 id)
 	_MeshObjects.GetDimensions(count, stride);
 	for (i = 0; i < count; i++)
 	{
-        //Check the bounding box
-        if (IntersectBoundingBox(ray, _MeshObjects[i])) {
+        // Check the bounding box
+        if (IntersectBoundingBox(ray, _MeshObjects[i]))
+        {
             IntersectMeshObject(ray, bestHit, _MeshObjects[i]);
         }
         GroupMemoryBarrierWithGroupSync();
 	}
     // Check if diffraction can occur
-    if (bestHit.hitSoundSource == 0) {
-        for (i = 0; i < count; i++) {
+    if (bestHit.hitSoundSource == 0)
+    {
+        for (i = 0; i < count; i++)
+        {
             MeshObject obj = _MeshObjects[i];
-            //Only check the same mesh as the hit object
-            if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index) {
-                //Check if there is a possible diffraction
-                if (!diffracted) {
+            // Only check the same mesh as the hit object
+            if (obj.indices_offset <= bestHit.index && obj.indices_offset + obj.indices_count > bestHit.index)
+            {
+                // Check if there is a possible diffraction
+                if (!diffracted)
+                {
                     CheckDiffraction(ray, diffracted_ray, bestHit, obj, id, diffracted);
                 }
             }
@@ -408,7 +438,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
     RayHit hit;
     for (int i = 0; i < _Bounces; i++)
     {
-        GroupMemoryBarrierWithGroupSync(); //Synchronize threads to ensure proper timing
+        GroupMemoryBarrierWithGroupSync(); // Synchronize threads to ensure proper timing
 
         if (!enabled &&
             !(_RayDir[id.x + id.y * width + id.z * width * height].x == 0.0f &&
@@ -416,7 +446,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             _RayDir[id.x + id.y * width + id.z * width * height].z == 0.0f))
         {
             enabled = true;
-            //Apply the position and rotation values to the vector
+            // Apply the position and rotation values to the vector
             ray.origin = _RayPos[id.x + id.y * width + id.z * width * height];
             ray.direction = _RayDir[id.x + id.y * width + id.z * width * height];
             ray.distance = Result[uint3(id.x, id.y, id.z * _ParameterCount + 1)];
@@ -431,7 +461,7 @@ void CSMain(uint3 id : SV_DispatchThreadID)
             break;
     }
 
-    //Valid rays write to the end texture
+    // Valid rays write to the end texture
     if (!enabled || ray.target == 0)
     {
         ray.target = 0;
