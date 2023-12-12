@@ -24,7 +24,7 @@ public class RayTracingMaster : MonoBehaviour
     private int prevW = Screen.width;
     [Range(1, 1024)]
     public int h = Screen.height; // The height of the ray tracing texture
-    public int prevH = Screen.height;
+    private int prevH = Screen.height;
 
     private Transform _transform; // The transform of the listener (the object this script is attached to)
     private RenderTexture _target; // The texture the GPU writes to; does not exist in CPU memory
